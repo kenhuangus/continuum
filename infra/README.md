@@ -83,7 +83,7 @@ Includes:
 
 - Security group rules ([ecs/security-group.md](ecs/security-group.md))
 - cloud-init script ([ecs/user-data.sh](ecs/user-data.sh))
-- `/etc/continuum.env` template on the instance
+- `/etc/continuum.env` template on the instance ([continuum.env.example](continuum.env.example))
 - Public URL verification
 
 ## Optional: ACR image push

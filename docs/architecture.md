@@ -25,7 +25,7 @@ flowchart TB
         GW[Auth, rate limit, X-Request-Id]
     end
 
-    subgraph Deploy["Alibaba Cloud deploy plane — planned"]
+    subgraph Deploy["Alibaba Cloud deploy plane — ECS primary (scaffolding; live pending)"]
         Host[ECS / FC hosts Continuum API]
     end
 
@@ -95,7 +95,7 @@ flowchart TB
 
 **Shipped path:** Demo Web UI → Continuum API (auth/rate limit/X-Request-Id in-app) → Memory Core (retrieve/pack/extract) → ContinuumAgent → QwenClient → Qwen Cloud (DashScope compatible-mode: `dashscope-intl.aliyuncs.com`); store is SQLite. MCP stdio clients talk to the Continuum MCP server → MemoryService/Store.
 
-**Planned / later (dashed):** optional API Gateway/edge, Alibaba Cloud ECS/FC hosting, Tablestore.
+**Planned / later (dashed):** optional API Gateway/edge, Tablestore. **ECS hosting:** Docker/runbook scaffolding in `infra/` (live instance pending — see [PROOF_OF_ALIBABA_DEPLOYMENT.md](PROOF_OF_ALIBABA_DEPLOYMENT.md)).
 
 ## Data flow (chat)
 
@@ -127,4 +127,4 @@ Offline suite in `evals/` with ≥15 fixtures and baselines (`no_memory`, `full_
 
 ## Still later
 
-Alibaba Cloud deployment (Tablestore, Redis, FC/ECS), optional API Gateway, full Postgres ops, stronger NLI supersession, production multi-tenant SaaS hardening.
+Alibaba Cloud production hardening (Tablestore, Redis, FC/ACK, API Gateway HTTPS), full Postgres ops, stronger NLI supersession, multi-tenant SaaS. ECS+Docker PoD path: [infra/ecs/DEPLOY.md](../infra/ecs/DEPLOY.md).

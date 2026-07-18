@@ -20,3 +20,9 @@ htmlcov/
 test_artifacts/
 .DS_Store
 Thumbs.db
+
+# Workbench screenshots: ignore probes; keep hackathon PoD PNG
+docs/screenshots/*.png
+docs/screenshots/*.jpg
+docs/screenshots/*.jpeg
+!docs/screenshots/alibaba_workbench.png

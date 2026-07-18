@@ -1,0 +1,135 @@
+{
+  "ROSTemplateFormatVersion": "2015-09-01",
+  "Description": "Continuum ECS + Docker stack (VPC, VSwitch, SecurityGroup, Instance).",
+  "Parameters": {
+    "InstanceType": {
+      "Type": "String",
+      "Default": "ecs.t5-lc1m1.small",
+      "Description": "ECS instance type"
+    },
+    "ImageId": {
+      "Type": "String",
+      "Description": "Ubuntu 22.04 image id for the target region"
+    },
+    "KeyPairName": {
+      "Type": "String",
+      "Description": "ECS key pair name for SSH"
+    },
+    "DashScopeApiKey": {
+      "Type": "String",
+      "NoEcho": true,
+      "Description": "DashScope API key (never commit real values)"
+    },
+    "ImageUrl": {
+      "Type": "String",
+      "Default": "continuum:local",
+      "Description": "Local or ACR image name (e.g. continuum:local or registry.../continuum:latest)"
+    },
+    "ZoneId": {
+      "Type": "String",
+      "Description": "Availability zone id for the VSwitch (required)"
+    }
+  },
+  "Resources": {
+    "VPC": {
+      "Type": "ALIYUN::ECS::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/8",
+        "VpcName": "continuum-vpc"
+      }
+    },
+    "VSwitch": {
+      "Type": "ALIYUN::ECS::VSwitch",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "CidrBlock": "10.0.0.0/24",
+        "ZoneId": {
+          "Ref": "ZoneId"
+        },
+        "VSwitchName": "continuum-vswitch"
+      }
+    },
+    "SecurityGroup": {
+      "Type": "ALIYUN::ECS::SecurityGroup",
+      "Properties": {
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "SecurityGroupName": "continuum-sg",
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "PortRange": "22/22",
+            "SourceCidrIp": "0.0.0.0/0",
+            "Description": "SSH"
+          },
+          {
+            "IpProtocol": "tcp",
+            "PortRange": "8000/8000",
+            "SourceCidrIp": "0.0.0.0/0",
+            "Description": "Continuum HTTP"
+          }
+        ]
+      }
+    },
+    "Instance": {
+      "Type": "ALIYUN::ECS::Instance",
+      "Properties": {
+        "InstanceName": "continuum",
+        "ImageId": {
+          "Ref": "ImageId"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "KeyPairName": {
+          "Ref": "KeyPairName"
+        },
+        "VSwitchId": {
+          "Ref": "VSwitch"
+        },
+        "SecurityGroupIds": [
+          {
+            "Ref": "SecurityGroup"
+          }
+        ],
+        "AssignPublicIpAddress": true,
+        "InternetMaxBandwidthOut": 5,
+        "UserData": {
+          "Fn::Base64Encode": {
+            "Fn::Sub": [
+              "#!/bin/bash\nset -euo pipefail\nexport DEBIAN_FRONTEND=noninteractive\napt-get update\napt-get install -y ca-certificates curl gnupg lsb-release\ninstall -m 0755 -d /etc/apt/keyrings\ncurl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg\nchmod a+r /etc/apt/keyrings/docker.gpg\necho \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable\" > /etc/apt/sources.list.d/docker.list\napt-get update\napt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin\nsystemctl enable docker\nsystemctl start docker\nmkdir -p /app/data\nchmod 755 /app/data\nIMAGE_URI='${ImageUrl}'\nif [[ \"$IMAGE_URI\" == *\".aliyuncs.com/\"* ]]; then\n  docker pull \"$IMAGE_URI\"\nfi\ndocker rm -f continuum 2>/dev/null || true\ndocker run -d \\\n  --name continuum \\\n  --restart unless-stopped \\\n  -p 8000:8000 \\\n  -e DASHSCOPE_API_KEY='${DashScopeApiKey}' \\\n  -e CONTINUUM_AUTH_DISABLED=1 \\\n  -e CONTINUUM_CORS_ORIGINS='*' \\\n  -e CONTINUUM_DB_PATH=/app/data/continuum.db \\\n  -v /app/data:/app/data \\\n  \"$IMAGE_URI\"\n",
+              {
+                "ImageUrl": {
+                  "Ref": "ImageUrl"
+                },
+                "DashScopeApiKey": {
+                  "Ref": "DashScopeApiKey"
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "InstanceId": {
+      "Description": "ECS instance id",
+      "Value": {
+        "Ref": "Instance"
+      }
+    },
+    "PublicIp": {
+      "Description": "Public IP of the ECS instance",
+      "Value": {
+        "Fn::GetAtt": [
+          "Instance",
+          "PublicIp"
+        ]
+      }
+    }
+  }
+}

@@ -6,19 +6,42 @@
 - SQLite persistence needs a writable volume (`/app/data`), which maps naturally to an ECS disk mount.
 - Single-container deploy is faster to debug than FC custom-container + NAS/OSS wiring.
 
+For Track 1 PoD, follow [../ecs/DEPLOY.md](../ecs/DEPLOY.md) first.
+
 ## When FC might make sense later
 
 - Scale-to-zero API without managing a VM
 - Custom container runtime with ACR image
 - API Gateway in front for HTTPS and auth
 
-## Not implemented here
+## Deploy via Serverless Devs (`s.yaml`)
 
-Full FC IaC (services, triggers, NAS mounts) is intentionally deferred. If you migrate:
+A starter FC3 custom-container definition lives in [s.yaml](s.yaml) (region `ap-southeast-1`, HTTP trigger on port 8000).
 
-1. Push the same image to ACR (see [../acr/push.md](../acr/push.md)).
-2. Create FC custom-container function with port 8000.
-3. Replace SQLite with Tablestore/RDS or mount NAS for `/app/data`.
-4. Update CORS and public URL env vars.
+**Caveats:** FC ephemeral storage is a poor fit for SQLite long-term. Prefer NAS/OSS or an external store for `/app/data`, or keep using ECS for the demo. Cold starts and container image pull latency also apply.
 
-For Track 1 PoD, follow [../ecs/DEPLOY.md](../ecs/DEPLOY.md) first.
+### Steps
+
+1. Push the Continuum image to ACR (see [../acr/push.md](../acr/push.md)). Confirm the image URI in `s.yaml` matches your registry.
+2. Install Serverless Devs:
+
+   ```bash
+   npm i -g @serverless-devs/s
+   ```
+
+3. Configure Alibaba Cloud access (`s config add`) for the International account / region you use.
+4. Export the DashScope key in the shell (do not commit secrets):
+
+   ```bash
+   export DASHSCOPE_API_KEY=your_key_here
+   ```
+
+5. From this directory, deploy:
+
+   ```bash
+   s deploy
+   ```
+
+6. After deploy, set CORS / public origin env vars to your real FC HTTP endpoint when you have one — do not invent a `PUBLIC_URL` ahead of time.
+
+If you outgrow this starter: replace SQLite with Tablestore/RDS or mount NAS for `/app/data`, and harden auth beyond `CONTINUUM_AUTH_DISABLED=1`.

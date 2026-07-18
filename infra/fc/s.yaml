@@ -1,0 +1,33 @@
+edition: 3.0.0
+name: continuum-fc
+access: default
+resources:
+  continuum-api:
+    component: fc3
+    props:
+      region: ap-southeast-1
+      functionName: continuum-api
+      runtime: custom-container
+      cpu: 0.5
+      memorySize: 1024
+      timeout: 60
+      diskSize: 512
+      environmentVariables:
+        DASHSCOPE_API_KEY: ${env.DASHSCOPE_API_KEY}
+        CONTINUUM_AUTH_DISABLED: '1'
+        CONTINUUM_CORS_ORIGINS: '*'
+        CONTINUUM_DB_PATH: /app/data/continuum.db
+      customContainerConfig:
+        image: continuum-registry-vpc.ap-southeast-1.cr.aliyuncs.com/continuum/continuum:latest
+        port: 8000
+      triggers:
+        - triggerName: httpTrigger
+          triggerType: http
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS

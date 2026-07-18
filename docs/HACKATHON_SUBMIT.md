@@ -16,7 +16,7 @@ Official sources: [Requirements](https://qwencloud-hackathon.devpost.com/) · [R
 | # | Deliverable | What judges need | Continuum status | Gap | Owner action |
 |---|-------------|------------------|------------------|-----|--------------|
 | 1 | **Public GitHub repo + OSI license** | Public repo with all source + run instructions; open-source **LICENSE at repo root** detectable in GitHub About | **PARTIAL** | `LICENSE` (Apache-2.0) and README exist locally, but git has **no commits**, **no remote**, repo not public | `git init` history → push public GitHub; confirm LICENSE shows in About; fill description / topics |
-| 2 | **Proof of Alibaba Cloud deployment** | (a) Devpost field: link to **code file** using Alibaba/Qwen Cloud APIs (Base URL visible); (b) **Workbench screenshot** of running Alibaba resources ([PoD 101](https://qwencloud-hackathon.devpost.com/updates/45055-proof-of-deployment-101-what-judges-need-to-see)); project must have **actually run** on Alibaba Cloud, not localhost-only | **MISSING** | `packages/agent/continuum_agent/client.py` has `https://dashscope-intl.aliyuncs.com/compatible-mode/v1` (good for code-link). `docs/PROOF_OF_ALIBABA_DEPLOYMENT.md` + `infra/` are **stubs**. No ECS/FC/ACK/ACR deploy, no Workbench screenshot | Deploy API to Alibaba (ECS or FC/ACK); rewrite proof doc with real URLs + screenshot path; paste code-file link + screenshot on Devpost |
+| 2 | **Proof of Alibaba Cloud deployment** | (a) Devpost field: link to **code file** using Alibaba/Qwen Cloud APIs (Base URL visible); (b) **Workbench screenshot** of running Alibaba resources ([PoD 101](https://qwencloud-hackathon.devpost.com/updates/45055-proof-of-deployment-101-what-judges-need-to-see)); project must have **actually run** on Alibaba Cloud, not localhost-only | **PARTIAL** | Code-link ready (`client.py` DashScope base URL). Docker + ECS/ACR scaffolding in `infra/` + fill-in [PROOF_OF_ALIBABA_DEPLOYMENT.md](PROOF_OF_ALIBABA_DEPLOYMENT.md). **Still pending:** live ECS run, Workbench screenshot (`docs/screenshots/alibaba_workbench.png`), filled `PUBLIC_URL` / `INSTANCE_ID` / `REGION` | Follow [infra/ecs/DEPLOY.md](../infra/ecs/DEPLOY.md); capture screenshot; fill proof placeholders; paste code-file link + screenshot on Devpost |
 | 3 | **Architecture diagram** | Clear visual: Qwen Cloud ↔ backend ↔ DB ↔ frontend | **DONE** (local) | `docs/architecture.md` + `docs/architecture.mmd` exist; Devpost needs an **image** judges can open | Export PNG/SVG from mermaid; attach on Devpost; keep markdown as source of truth |
 | 4 | **~3 min public demo video** | ≤3 min (judges not required past 3); **working product** footage; public on **YouTube, Vimeo, or Youku** (rules). Main page also lists Facebook Video — prefer YT/Vimeo/Youku | **MISSING** | No recorded/published video | Script Session A→B + forget + pack budget; record; upload **public**; leave hours for processing |
 | 5 | **Text description + track** | English description of features/functionality; track = **MemoryAgent** | **PARTIAL** | Strong copy in `prd.md` / README; nothing on Devpost yet | Paste track + description; name **Qwen Cloud** in description and Built With |
@@ -46,7 +46,7 @@ Official sources: [Requirements](https://qwencloud-hackathon.devpost.com/) · [R
 | Requirement | Official bar | Continuum status | Gap / action |
 |-------------|--------------|------------------|--------------|
 | **Uses Qwen Cloud models/APIs** | Project built with Qwen models on Qwen Cloud; Stage One pass/fail on required APIs | **PARTIAL → near DONE in code** | `QwenClient` targets DashScope intl compatible-mode; app can run **offline** without key. **Must** demo with live `DASHSCOPE_API_KEY` / `QWEN_API_KEY` and cite Qwen in materials |
-| **Deployed on Alibaba Cloud** | Backend ran on Alibaba Cloud; code link + Workbench screenshot; “No proof = not eligible” | **MISSING** | Highest DQ risk. Local SQLite Phase A is not enough. Minimum: container/API on ECS or FC + public URL + screenshot |
+| **Deployed on Alibaba Cloud** | Backend ran on Alibaba Cloud; code link + Workbench screenshot; “No proof = not eligible” | **MISSING** (live) | Highest DQ risk. Scaffolding is ready (`Dockerfile`, `infra/ecs/`); still need a real ECS container + public URL + Workbench screenshot — do not submit PoD until those exist |
 | **Significantly updated in Submission Period** | New project **or** significant updates after **May 26, 2026 8:00am PT**; explain updates | **AT RISK** | No git history yet. Create public repo **now** with commit history before deadline; Devpost blurb: “built during Submission Period (Phase A MemoryAgent vertical slice)” |
 
 Acceptable proof Base URLs (from PoD update):
@@ -111,7 +111,7 @@ Ordered path from **product-ready** → **Devpost submitted**. Estimates assume 
 |------|--------|
 | Phase A vertical slice (pack → agent → ingest, SQLite, demo UI) | Implemented locally |
 | Qwen client Base URL | Present in `client.py` |
-| Alibaba infra / proof | Stub only |
+| Alibaba infra / proof | Scaffolding ready (Docker/ECS/ACR); live deploy + screenshot pending |
 | Public GitHub | Not published (no commits/remote) |
 | Demo video / Devpost | Not started |
 | Scientific/SaaS bar vs PRD | Not yet — see `MEMORY_SAAS_ASSESSMENT.md`; ship honest Phase A claims for hackathon |

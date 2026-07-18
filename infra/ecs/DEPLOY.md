@@ -48,7 +48,7 @@ Set `CONTINUUM_IMAGE` to that URI in user-data or run manually.
 ### Path B — Git clone + build on instance
 
 ```bash
-git clone https://github.com/YOUR_ORG/continuum.git /opt/continuum
+git clone https://github.com/kenhuangus/continuum.git /opt/continuum
 cd /opt/continuum
 sudo docker build -t continuum:local .
 ```
@@ -62,7 +62,7 @@ Paste [user-data.sh](user-data.sh) into ECS **User Data** at launch (or use as a
 
 ## 4. Configure environment on the instance
 
-Create `/etc/continuum.env` (mode 600):
+Start from the example template [continuum.env.example](continuum.env.example), then create `/etc/continuum.env` (mode 600):
 
 ```bash
 sudo tee /etc/continuum.env <<'EOF'
@@ -76,7 +76,7 @@ EOF
 sudo chmod 600 /etc/continuum.env
 ```
 
-Replace placeholders. Never commit this file.
+Replace placeholders (`YOUR_KEY_HERE`, `YOUR_PUBLIC_IP`). Never commit the real `/etc/continuum.env`.
 
 ## 5. Run container
 

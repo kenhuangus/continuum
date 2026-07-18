@@ -49,7 +49,8 @@ IMAGE_URI="${CONTINUUM_IMAGE:-continuum:local}"
 if [[ "$IMAGE_URI" == *".aliyuncs.com/"* ]]; then
   docker pull "$IMAGE_URI"
 else
-  # Option B: build from git (set CONTINUUM_GIT_URL)
+  # Option B: build from git (set CONTINUUM_GIT_URL).
+  # Example: CONTINUUM_GIT_URL=https://github.com/kenhuangus/continuum.git
   if [ -n "${CONTINUUM_GIT_URL:-}" ]; then
     git clone --depth 1 "$CONTINUUM_GIT_URL" /opt/continuum
     docker build -t continuum:local /opt/continuum
