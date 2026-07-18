@@ -32,6 +32,8 @@
 .venv\Scripts\python.exe scripts\demo_video\run_pipeline.py
 ```
 
-Flags: `--skip-capture`, `--skip-tts`, `--silent`, `--stills-only`, `--no-ken-burns`,
-`--speed 1.8`, `--base-url URL`.
+Flags: `--skip-capture`, `--skip-tts`, `--silent`, `--screencast-mux` (sync-unsafe),
+`--no-ken-burns`, `--speed 1.8`, `--base-url URL`.
+
+Assemble uses **per-chapter stills timed to TTS audio** (sync-correct).
 

@@ -39,6 +39,10 @@ demo_video/*.wav
 demo_video/*.mp3
 demo_video/STATUS.txt
 demo_video/CHAPTER_MARKERS.json
+demo_video/CHAPTER_TIMING.json
+demo_video/QA_REPORT.json
+demo_video/_qa_clips/
 !demo_video/.gitkeep
+!demo_video/QA_REPORT.md
 # CHAPTERS.md and README.md are tracked (generated docs for the product tour)
 

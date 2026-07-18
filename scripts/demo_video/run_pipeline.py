@@ -14,6 +14,7 @@ from assemble_video import assemble_video  # noqa: E402
 from audio_speed import speed_beats_in_dir  # noqa: E402
 from capture_frames import DEFAULT_BASE_URL, capture_frames  # noqa: E402
 from narration import BEATS, NARRATION_SPEED, estimated_duration_seconds, word_count  # noqa: E402
+from qa_sync import check_sync, write_qa_report  # noqa: E402
 from tts_edge import EdgeTTSError, synthesize_beats as edge_synthesize_beats  # noqa: E402
 from tts_fallback import synthesize_beats as sapi_synthesize_beats  # noqa: E402
 from tts_qwen import QwenTTSError, synthesize_beats as qwen_synthesize_beats  # noqa: E402
@@ -66,8 +67,10 @@ def write_chapters_readme(mode: str, speed: float) -> None:
             r".venv\Scripts\python.exe scripts\demo_video\run_pipeline.py",
             "```",
             "",
-            "Flags: `--skip-capture`, `--skip-tts`, `--silent`, `--stills-only`, `--no-ken-burns`,",
-            f"`--speed {speed}`, `--base-url URL`.",
+            "Flags: `--skip-capture`, `--skip-tts`, `--silent`, `--screencast-mux` (sync-unsafe),",
+            f"`--no-ken-burns`, `--speed {speed}`, `--base-url URL`.",
+            "",
+            "Assemble uses **per-chapter stills timed to TTS audio** (sync-correct).",
             "",
         ]
     )
@@ -191,12 +194,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--stills-only",
         action="store_true",
-        help="Do not prefer Playwright screencast; assemble from stills",
+        help="(Default behavior) Assemble from per-chapter stills timed to audio",
+    )
+    parser.add_argument(
+        "--screencast-mux",
+        action="store_true",
+        help="UNSAFE: mux continuous screencast + narration (desyncs chapters; debug only)",
     )
     parser.add_argument(
         "--no-video-record",
         action="store_true",
         help="Skip Playwright screencast recording during capture",
+    )
+    parser.add_argument(
+        "--skip-qa",
+        action="store_true",
+        help="Skip post-assemble sync QA (|video_seg - audio| < 0.15s)",
     )
     parser.add_argument(
         "--speed",
@@ -239,20 +252,23 @@ def main(argv: list[str] | None = None) -> int:
     mode = run_tts(silent=args.silent, skip_tts=args.skip_tts, speed=args.speed)
     print(f"TTS mode: {mode}  speed=x{args.speed}")
 
-    print("Assembling video...")
+    prefer_sc = bool(args.screencast_mux) and not args.stills_only
+    if prefer_sc:
+        print("WARNING: --screencast-mux enabled (chapter A/V will desync)")
+
+    print("Assembling video (per-chapter stills = audio duration)...")
     try:
         out = assemble_video(
             BEATS,
             OUT_DIR,
             silent=(mode == "silent"),
             ken_burns=not args.no_ken_burns,
-            prefer_screencast=not args.stills_only,
+            prefer_screencast=prefer_sc,
         )
     except Exception as exc:
         print(f"ERROR: assemble failed: {exc}")
-        # One more try with stills only
-        if not args.stills_only:
-            print("Retrying assemble with stills only...")
+        if prefer_sc:
+            print("Retrying assemble with sync-correct stills...")
             try:
                 out = assemble_video(
                     BEATS,
@@ -275,6 +291,7 @@ def main(argv: list[str] | None = None) -> int:
             data = json.loads(markers.read_text(encoding="utf-8"))
             data["narration_speed"] = args.speed
             data["tts_mode"] = mode
+            data["assemble_mode"] = "screencast_mux" if prefer_sc else "per_chapter_stills"
             markers.write_text(json.dumps(data, indent=2), encoding="utf-8")
         except (json.JSONDecodeError, OSError):
             pass
@@ -282,6 +299,20 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Done: {out}")
     print(f"Status: {OUT_DIR / 'STATUS.txt'}")
     print(f"Chapters: {OUT_DIR / 'CHAPTERS.md'}")
+
+    if not args.skip_qa and mode != "silent":
+        print("Running sync QA (|video_seg - audio| < 0.15s)...")
+        try:
+            report = check_sync(OUT_DIR, beats=BEATS, tolerance_s=0.15)
+            qa_path = write_qa_report(OUT_DIR, report)
+            print(f"QA: {qa_path} pass={report['pass']}")
+            if not report["pass"]:
+                fails = [c["id"] for c in report["chapters"] if not c["pass"]]
+                print(f"ERROR: sync QA failed for chapters: {fails}")
+                return 2
+        except Exception as qa_exc:
+            print(f"ERROR: sync QA failed to run: {qa_exc}")
+            return 2
     return 0
 
 

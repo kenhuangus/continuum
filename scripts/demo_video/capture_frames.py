@@ -219,6 +219,61 @@ def _focus_field(page: Any, selector: str) -> None:
         pass
 
 
+def _ensure_demo_highlight_style(page: Any) -> None:
+    page.evaluate(
+        """() => {
+          if (document.getElementById('demo-highlight-style')) return;
+          const s = document.createElement('style');
+          s.id = 'demo-highlight-style';
+          s.textContent = `
+            [data-demo-highlight="1"], .demo-highlight {
+              outline: 3px solid #0d9488 !important;
+              outline-offset: 3px !important;
+              box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.25) !important;
+              animation: demoPulse 1.1s ease-in-out infinite !important;
+              border-radius: 4px;
+            }
+            @keyframes demoPulse {
+              0%, 100% { outline-color: #0d9488; }
+              50% { outline-color: #14b8a6; }
+            }
+          `;
+          document.head.appendChild(s);
+        }"""
+    )
+
+
+def _clear_highlights(page: Any) -> None:
+    try:
+        page.evaluate(
+            """() => {
+              document.querySelectorAll('[data-demo-highlight], .demo-highlight').forEach(el => {
+                el.removeAttribute('data-demo-highlight');
+                el.classList.remove('demo-highlight');
+              });
+            }"""
+        )
+    except Exception:
+        pass
+
+
+def _highlight(page: Any, *selectors: str) -> None:
+    """CSS outline/pulse on fields/sections being narrated for this chapter."""
+    _ensure_demo_highlight_style(page)
+    _clear_highlights(page)
+    for sel in selectors:
+        try:
+            page.locator(sel).first.evaluate(
+                """el => {
+                  el.setAttribute('data-demo-highlight', '1');
+                  el.classList.add('demo-highlight');
+                }"""
+            )
+        except Exception:
+            pass
+    page.wait_for_timeout(280)
+
+
 def _set_range(page: Any, selector: str, value: int) -> None:
     page.locator(selector).evaluate(
         f"el => {{ el.value = {int(value)}; el.dispatchEvent(new Event('input')); "
@@ -308,6 +363,7 @@ def capture_frames(
 
             # 01 intro / hero
             mark("01_intro", "Hero / Chat")
+            _highlight(page, "h1", "#nav-chat")
             p01 = frames_dir / "01_hero.png"
             _shot(page, p01)
             paths.append(p01)
@@ -315,6 +371,7 @@ def capture_frames(
 
             # 02 field-level: workspace / session / org / api key
             mark("02_chat_fields", "Workspace & session fields")
+            _highlight(page, "#workspaceId", "#sessionId", "#orgId", "#apiKey")
             _focus_field(page, "#workspaceId")
             page.wait_for_timeout(400)
             _focus_field(page, "#sessionId")
@@ -332,6 +389,7 @@ def capture_frames(
             _set_range(page, "#budget", 900)
             page.select_option("#packerAlgo", "type_quota")
             page.wait_for_timeout(300)
+            _highlight(page, "#budget", "#packerAlgo", "#newSession", "#forgetPass")
             _focus_field(page, "#budget")
             page.wait_for_timeout(400)
             _focus_field(page, "#packerAlgo")
@@ -346,16 +404,20 @@ def capture_frames(
 
             # 04 VIP
             mark("04_session_a_vip", "VIP memory")
+            _highlight(page, "#messageInput", "#sendBtn", "#memoryList")
             _send_message(page, "Remember: Acme is a VIP customer.")
             page.wait_for_timeout(600)
+            _highlight(page, "#chatLog", "#memoryList")
             p04 = frames_dir / "04_session_a_vip.png"
             _shot(page, p04)
             paths.append(p04)
 
             # 05 discount
             mark("05_session_a_discount", "Discount memory")
+            _highlight(page, "#messageInput", "#memoryList")
             _send_message(page, "Remember: Approved 12% discount for Acme through end of 2026.")
             page.wait_for_timeout(600)
+            _highlight(page, "#chatLog", "#memoryList")
             p05 = frames_dir / "05_session_a_discount.png"
             _shot(page, p05)
             paths.append(p05)
@@ -374,6 +436,7 @@ def capture_frames(
                 page.wait_for_timeout(400)
             except Exception:
                 pass
+            _highlight(page, "#statusTabs", "#memoryList")
             p06 = frames_dir / "06_session_a_pref.png"
             _shot(page, p06)
             paths.append(p06)
@@ -382,6 +445,7 @@ def capture_frames(
             mark("07_new_session", "New Session")
             page.click("#newSession")
             page.wait_for_timeout(700)
+            _highlight(page, "#newSession", "#sessionId", "#chatLog")
             _focus_field(page, "#sessionId")
             page.wait_for_timeout(400)
             p07 = frames_dir / "07_new_session.png"
@@ -390,12 +454,14 @@ def capture_frames(
 
             # 08 recall + citations
             mark("08_recall_citations", "Session B recall")
+            _highlight(page, "#messageInput", "#chatLog")
             _send_message(page, "What discount does Acme get and are they VIP?")
             page.wait_for_timeout(900)
             try:
                 page.wait_for_selector("#chatLog .cite", timeout=15000)
             except Exception:
                 print("  WARNING: citations not visible — continuing")
+            _highlight(page, "#chatLog", "#memoryList")
             p08 = frames_dir / "08_recall_citations.png"
             _shot(page, p08)
             paths.append(p08)
@@ -414,6 +480,7 @@ def capture_frames(
                 print("  WARNING: packMeta did not show Algorithm — continuing")
             _set_range(page, "#budget", 600)
             page.wait_for_timeout(500)
+            _highlight(page, "#budget", "#packMeta", "#packList")
             p09 = frames_dir / "09_packer_chat.png"
             _shot(page, p09)
             paths.append(p09)
@@ -426,6 +493,7 @@ def capture_frames(
                     page.wait_for_timeout(550)
                 except Exception:
                     pass
+            _highlight(page, "#statusTabs", "#memoryList")
             p10 = frames_dir / "10_inspector_tabs.png"
             _shot(page, p10)
             paths.append(p10)
@@ -439,6 +507,7 @@ def capture_frames(
                 page.wait_for_timeout(800)
             except Exception:
                 pass
+            _highlight(page, "#nav-memory", "#refreshStats", "#graphSvg")
             p11 = frames_dir / "11_memory_graph.png"
             _shot(page, p11)
             paths.append(p11)
@@ -461,6 +530,7 @@ def capture_frames(
                     page.wait_for_timeout(600)
                 except Exception:
                     print("  WARNING: no graph memory to select")
+            _highlight(page, "#graphStatusTabs", "#graphMemoryList")
             p12 = frames_dir / "12_graph_filters.png"
             _shot(page, p12)
             paths.append(p12)
@@ -472,6 +542,7 @@ def capture_frames(
             page.fill("#packQuery", "What discount does Acme get?")
             _set_range(page, "#labBudget", 800)
             page.select_option("#labAlgo", "type_quota")
+            _highlight(page, "#packQuery", "#labBudget", "#labAlgo", "#asOf", "#runPack")
             _focus_field(page, "#packQuery")
             page.wait_for_timeout(350)
             _focus_field(page, "#labBudget")
@@ -506,6 +577,7 @@ def capture_frames(
                 page.wait_for_timeout(800)
             except Exception:
                 pass
+            _highlight(page, "#labBudget", "#labPackMeta", "#labPackList")
             p14 = frames_dir / "14_packer_run_tight.png"
             _shot(page, p14)
             paths.append(p14)
@@ -526,6 +598,7 @@ def capture_frames(
                 )
             except Exception:
                 print("  WARNING: Packer Lab wide preview slow — continuing")
+            _highlight(page, "#labBudget", "#labAlgo", "#labPackMeta", "#labPackList")
             p15 = frames_dir / "15_packer_run_wide.png"
             _shot(page, p15)
             paths.append(p15)
@@ -534,6 +607,7 @@ def capture_frames(
             mark("16_policies_rbac", "Policies org & RBAC")
             _goto_view(page, "admin")
             page.wait_for_timeout(500)
+            _highlight(page, "#orgId", "#apiKey", "#pingHealth", "#loadPolicyMemories")
             _focus_field(page, "#orgId")
             page.wait_for_timeout(350)
             _focus_field(page, "#apiKey")
@@ -554,6 +628,7 @@ def capture_frames(
 
             # 17 forget + consolidate
             mark("17_policies_forget", "Forget & consolidate")
+            _highlight(page, "#adminForget", "#adminConsolidate")
             try:
                 page.click("#adminForget")
                 page.wait_for_timeout(1200)
@@ -573,9 +648,11 @@ def capture_frames(
             _goto_view(page, "chat")
             page.click("#statusTabs .tab[data-status='active']")
             page.wait_for_timeout(600)
+            _highlight(page, "h1", "#nav-chat", "#memoryList")
             p18 = frames_dir / "18_close.png"
             _shot(page, p18)
             paths.append(p18)
+            _clear_highlights(page)
 
             # Dwell so screencast covers closing narration
             page.wait_for_timeout(1500)

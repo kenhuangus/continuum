@@ -1,7 +1,16 @@
-"""Assemble demo_video/continuum_demo.mp4 from frames (+ optional screencast) + audio."""
+"""Assemble demo_video/continuum_demo.mp4 from per-chapter frames + audio (sync-correct).
+
+Correct model (priority #1 — A/V sync):
+  For each chapter i: visual lasting exactly duration(audio_i), then concat in order.
+
+Continuous Playwright screencast must NOT be muxed against chapter narration: capture
+wall-clock chapter markers are ~1–2s apart while TTS chapters are many seconds each,
+so screencast+concat-audio always desyncs. Screencast remains an optional artifact only.
+"""
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -30,7 +39,9 @@ def resolve_ffprobe(ffmpeg_exe: str) -> str | None:
     probe = shutil.which("ffprobe")
     if probe:
         return probe
-    sibling = Path(ffmpeg_exe).with_name("ffprobe.exe" if Path(ffmpeg_exe).suffix == ".exe" else "ffprobe")
+    sibling = Path(ffmpeg_exe).with_name(
+        "ffprobe.exe" if Path(ffmpeg_exe).suffix == ".exe" else "ffprobe"
+    )
     if sibling.is_file():
         return str(sibling)
     return None
@@ -67,8 +78,6 @@ def audio_duration_seconds(audio_path: Path, ffmpeg_exe: str, ffprobe_exe: str |
         text=True,
         check=False,
     )
-    import re
-
     m = re.search(r"Duration:\s*(\d+):(\d+):(\d+\.\d+)", proc.stderr or "")
     if m:
         h, mi, s = int(m.group(1)), int(m.group(2)), float(m.group(3))
@@ -141,7 +150,14 @@ def assemble_from_screencast(
     silent: bool = False,
     output_name: str = "continuum_demo.mp4",
 ) -> Path:
-    """Mux full screencast with concatenated chapter audio (pad/trim video to audio length)."""
+    """DEPRECATED for product demos — continuous screencast ≠ chapter audio timeline.
+
+    Kept only for experiments. Prefer assemble_video(..., prefer_screencast=False).
+    """
+    print(
+        "  WARNING: screencast mux ignores per-chapter sync "
+        "(capture wall-clock ≠ TTS durations). Prefer stills."
+    )
     ffmpeg = resolve_ffmpeg()
     ffprobe = resolve_ffprobe(ffmpeg)
     audio_dir = out_dir / "audio"
@@ -246,6 +262,165 @@ def assemble_from_screencast(
     return output
 
 
+def _make_chapter_clip(
+    *,
+    ffmpeg: str,
+    ffprobe: str | None,
+    frame: Path,
+    audio: Path | None,
+    text: str,
+    clip: Path,
+    silent: bool,
+    ken_burns: bool,
+) -> float:
+    """Build one chapter mp4 lasting exactly audio (or estimated) duration. Returns duration used."""
+    if silent or audio is None or not audio.is_file():
+        dur = estimate_duration_from_text(text)
+        _run(
+            [
+                ffmpeg,
+                "-y",
+                "-loop",
+                "1",
+                "-i",
+                str(frame),
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=channel_layout=stereo:sample_rate=44100",
+                "-t",
+                f"{dur:.6f}",
+                "-vf",
+                "scale=1440:900:force_original_aspect_ratio=decrease,"
+                "pad=1440:900:(ow-iw)/2:(oh-ih)/2,fps=25,format=yuv420p",
+                "-c:v",
+                "libx264",
+                "-tune",
+                "stillimage",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-ar",
+                "44100",
+                "-ac",
+                "2",
+                "-shortest",
+                str(clip),
+            ]
+        )
+        return dur
+
+    dur = audio_duration_seconds(audio, ffmpeg, ffprobe)
+    # Lock video length to audio: -t on output + -shortest; pad audio with apad if needed
+    if ken_burns:
+        frames_n = max(25, int(round(dur * 25)))
+        vf = (
+            "scale=2880:-1,"
+            f"zoompan=z='min(zoom+0.0008,1.08)':x='iw/2-(iw/zoom/2)':"
+            f"y='ih/2-(ih/zoom/2)':d={frames_n}:s=1440x900:fps=25,"
+            "format=yuv420p"
+        )
+    else:
+        vf = (
+            "scale=1440:900:force_original_aspect_ratio=decrease,"
+            "pad=1440:900:(ow-iw)/2:(oh-ih)/2,fps=25,format=yuv420p"
+        )
+
+    _run(
+        [
+            ffmpeg,
+            "-y",
+            "-loop",
+            "1",
+            "-framerate",
+            "25",
+            "-i",
+            str(frame),
+            "-i",
+            str(audio),
+            "-vf",
+            vf,
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-c:a",
+            "aac",
+            "-ar",
+            "44100",
+            "-ac",
+            "2",
+            "-t",
+            f"{dur:.6f}",
+            "-shortest",
+            str(clip),
+        ]
+    )
+
+    # Verify and re-encode with tpad if video short (zoompan edge cases)
+    got = _video_duration(clip, ffmpeg, ffprobe)
+    if got > 0 and abs(got - dur) >= 0.12:
+        fixed = clip.with_suffix(".fix.mp4")
+        if got < dur - 0.05:
+            pad = dur - got
+            _run(
+                [
+                    ffmpeg,
+                    "-y",
+                    "-i",
+                    str(clip),
+                    "-i",
+                    str(audio),
+                    "-filter_complex",
+                    f"[0:v]tpad=stop_mode=clone:stop_duration={pad:.6f}[v];"
+                    f"[1:a]apad=whole_dur={dur:.6f}[a]",
+                    "-map",
+                    "[v]",
+                    "-map",
+                    "[a]",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-c:a",
+                    "aac",
+                    "-ar",
+                    "44100",
+                    "-ac",
+                    "2",
+                    "-t",
+                    f"{dur:.6f}",
+                    str(fixed),
+                ]
+            )
+        else:
+            _run(
+                [
+                    ffmpeg,
+                    "-y",
+                    "-i",
+                    str(clip),
+                    "-t",
+                    f"{dur:.6f}",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-c:a",
+                    "aac",
+                    "-ar",
+                    "44100",
+                    "-ac",
+                    "2",
+                    str(fixed),
+                ]
+            )
+        fixed.replace(clip)
+
+    return dur
+
+
 def assemble_video(
     beats: list[dict],
     out_dir: Path,
@@ -253,13 +428,13 @@ def assemble_video(
     silent: bool = False,
     ken_burns: bool = True,
     output_name: str = "continuum_demo.mp4",
-    prefer_screencast: bool = True,
+    prefer_screencast: bool = False,
 ) -> Path:
-    """Build mp4: prefer screencast+narration; else per-beat stills + audio."""
+    """Build mp4 from per-beat stills timed to audio (sync-correct). Screencast opt-in only."""
     if prefer_screencast:
         sc = _find_screencast(out_dir)
         if sc is not None:
-            print(f"  Assembling from screencast: {sc}")
+            print(f"  Assembling from screencast (NOT sync-safe): {sc}")
             try:
                 return assemble_from_screencast(
                     beats, out_dir, sc, silent=silent, output_name=output_name
@@ -274,9 +449,15 @@ def assemble_video(
     output = out_dir / output_name
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    qa_clips = out_dir / "_qa_clips"
+    if qa_clips.is_dir():
+        shutil.rmtree(qa_clips, ignore_errors=True)
+    qa_clips.mkdir(parents=True, exist_ok=True)
+
     with tempfile.TemporaryDirectory(prefix="continuum_demo_") as tmp:
         tmp_path = Path(tmp)
         clip_paths: list[Path] = []
+        chapter_meta: list[dict] = []
 
         for i, beat in enumerate(beats, start=1):
             frame = frames_dir / beat["frame"]
@@ -287,94 +468,33 @@ def assemble_video(
 
             clip = tmp_path / f"clip_{i:02d}.mp4"
             audio = audio_dir / beat["audio"]
-
-            if silent or not audio.is_file():
-                dur = estimate_duration_from_text(beat["text"])
-                _run(
-                    [
-                        ffmpeg,
-                        "-y",
-                        "-loop",
-                        "1",
-                        "-i",
-                        str(frame),
-                        "-f",
-                        "lavfi",
-                        "-i",
-                        "anullsrc=channel_layout=stereo:sample_rate=44100",
-                        "-t",
-                        f"{dur:.3f}",
-                        "-c:v",
-                        "libx264",
-                        "-tune",
-                        "stillimage",
-                        "-pix_fmt",
-                        "yuv420p",
-                        "-c:a",
-                        "aac",
-                        "-shortest",
-                        str(clip),
-                    ]
-                )
-            else:
-                dur = audio_duration_seconds(audio, ffmpeg, ffprobe)
-                if ken_burns:
-                    frames_n = max(25, int(dur * 25))
-                    vf = (
-                        "scale=2880:-1,"
-                        f"zoompan=z='min(zoom+0.0008,1.08)':x='iw/2-(iw/zoom/2)':"
-                        f"y='ih/2-(ih/zoom/2)':d={frames_n}:s=1440x900:fps=25,"
-                        "format=yuv420p"
-                    )
-                    _run(
-                        [
-                            ffmpeg,
-                            "-y",
-                            "-loop",
-                            "1",
-                            "-i",
-                            str(frame),
-                            "-i",
-                            str(audio),
-                            "-vf",
-                            vf,
-                            "-c:v",
-                            "libx264",
-                            "-c:a",
-                            "aac",
-                            "-t",
-                            f"{dur:.3f}",
-                            "-shortest",
-                            "-pix_fmt",
-                            "yuv420p",
-                            str(clip),
-                        ]
-                    )
-                else:
-                    _run(
-                        [
-                            ffmpeg,
-                            "-y",
-                            "-loop",
-                            "1",
-                            "-i",
-                            str(frame),
-                            "-i",
-                            str(audio),
-                            "-c:v",
-                            "libx264",
-                            "-tune",
-                            "stillimage",
-                            "-c:a",
-                            "aac",
-                            "-pix_fmt",
-                            "yuv420p",
-                            "-shortest",
-                            str(clip),
-                        ]
-                    )
+            dur = _make_chapter_clip(
+                ffmpeg=ffmpeg,
+                ffprobe=ffprobe,
+                frame=frame,
+                audio=audio if audio.is_file() else None,
+                text=beat["text"],
+                clip=clip,
+                silent=silent,
+                ken_burns=ken_burns,
+            )
+            # Persist for QA
+            persisted = qa_clips / f"clip_{i:02d}.mp4"
+            shutil.copy2(clip, persisted)
             clip_paths.append(clip)
+            chapter_meta.append(
+                {
+                    "id": beat["id"],
+                    "index": i,
+                    "audio": beat["audio"],
+                    "frame": beat["frame"],
+                    "duration_s": round(dur, 6),
+                    "clip": str(persisted.name),
+                }
+            )
+            print(f"  Chapter {i:02d} {beat['id']}: visual={dur:.3f}s (= audio)")
 
+        # Re-encode concat (not stream copy) so timestamps stay contiguous and A/V aligned
         list_file = tmp_path / "concat.txt"
         list_file.write_text(
             "\n".join(f"file '{c.resolve().as_posix()}'" for c in clip_paths) + "\n",
@@ -390,10 +510,24 @@ def assemble_video(
                 "0",
                 "-i",
                 str(list_file),
-                "-c",
-                "copy",
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-ar",
+                "44100",
+                "-ac",
+                "2",
+                "-movflags",
+                "+faststart",
                 str(output),
             ]
         )
 
+    (out_dir / "CHAPTER_TIMING.json").write_text(
+        json.dumps({"chapters": chapter_meta, "output": output_name}, indent=2),
+        encoding="utf-8",
+    )
     return output
