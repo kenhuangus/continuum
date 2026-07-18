@@ -38,13 +38,19 @@ def extract_slots(content: str, entities: list[str] | None = None) -> dict[str, 
     elif re.search(r"prefers?\s+slack|slack\s+(?:communication|contact)", text, re.IGNORECASE):
         slots["contact_channel"] = "slack"
 
-    sla = re.search(r"(?i)(?:sla|uptime)\s*(?:of|:)?\s*(\d+(?:\.\d+)?)\s*%", text)
-    if sla:
-        slots["sla_pct"] = float(sla.group(1))
-    elif re.search(r"(?i)\bsla\b.{0,40}(\d+)\s*(?:hour|hr|h)\b", text):
-        m2 = re.search(r"(?i)\bsla\b.{0,40}(\d+)\s*(?:hour|hr|h)\b", text)
-        if m2:
-            slots["sla_hours"] = int(m2.group(1))
+    sla_pct = re.search(
+        r"(?i)(?:uptime|availability|sla).{0,40}?(\d+(?:\.\d+)?)\s*%",
+        text,
+    )
+    if sla_pct:
+        slots["sla_pct"] = float(sla_pct.group(1))
+
+    sla_hours = re.search(
+        r"(?i)(?:response|sla|resolve|resolution).{0,40}?(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b",
+        text,
+    )
+    if sla_hours:
+        slots["sla_hours"] = float(sla_hours.group(1))
 
     owner = re.search(
         r"(?i)(?:owner|account\s+manager|am)\s*(?:is|:)\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
@@ -94,6 +100,10 @@ def _slot_conflict(a: Memory, b: Memory) -> bool:
     return False
 
 
+def _substantive_slots(memory: Memory) -> dict[str, Any]:
+    return {k: v for k, v in (memory.slots or {}).items() if k != "entity"}
+
+
 def _conflicts(a: Memory, b: Memory) -> bool:
     """Slot conflict preferred; heuristic topic+entity fallback."""
     if a.type != b.type:
@@ -106,6 +116,17 @@ def _conflicts(a: Memory, b: Memory) -> bool:
     if _slot_conflict(a, b):
         return True
 
+    # Complementary structured facts (e.g. sla_pct vs sla_hours) must not
+    # collide via coarse topic tags like "sla".
+    slots_a = _substantive_slots(a)
+    slots_b = _substantive_slots(b)
+    if slots_a and slots_b:
+        shared = set(slots_a) & set(slots_b)
+        if not shared:
+            return False
+        if all(slots_a[k] == slots_b[k] for k in shared):
+            return False
+
     keys_a = _entity_keys(a)
     keys_b = _entity_keys(b)
     if not keys_a.intersection(keys_b):
@@ -114,6 +135,10 @@ def _conflicts(a: Memory, b: Memory) -> bool:
     topics_b = _topics(b.content)
     if topics_a and topics_b:
         return bool(topics_a.intersection(topics_b))
+    # No topics and no slot conflict: do not treat entity overlap alone as conflict
+    # when either side already has structured slots.
+    if slots_a or slots_b:
+        return False
     return True
 
 

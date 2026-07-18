@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -17,6 +18,11 @@ from continuum_memory import MemoryService  # noqa: E402
 
 
 def main() -> int:
+    os.environ.setdefault("CONTINUUM_AUTH_DISABLED", "1")
+    os.environ["CONTINUUM_FORCE_LOCAL_EMBED"] = "1"
+    os.environ.pop("DASHSCOPE_API_KEY", None)
+    os.environ.pop("QWEN_API_KEY", None)
+
     fixture_path = Path(__file__).parent / "fixtures" / "acme_session_a_b.json"
     fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
 

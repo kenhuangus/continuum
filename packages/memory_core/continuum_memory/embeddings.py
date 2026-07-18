@@ -75,6 +75,8 @@ def embed_text_cached(text: str) -> tuple[float, ...]:
 
 def embed_text(text: str) -> list[float]:
     """Prefer API embeddings when key present; always soft-fail to local."""
+    if os.environ.get("CONTINUUM_FORCE_LOCAL_EMBED", "").lower() in ("1", "true", "yes"):
+        return local_embed(text)
     api_vec = _api_embed(text)
     if api_vec is not None:
         # Project / pad to EMBED_DIM for stable local cosine with cached locals

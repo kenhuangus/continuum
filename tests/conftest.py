@@ -16,6 +16,12 @@ DEFAULT_BASE_URL = "http://127.0.0.1:8000"
 
 
 def pytest_configure(config: pytest.Config) -> None:
+    # Offline deterministic hybrid retrieve in tests (hashed local vectors only).
+    os.environ.setdefault("CONTINUUM_AUTH_DISABLED", "1")
+    os.environ["CONTINUUM_FORCE_LOCAL_EMBED"] = "1"
+    os.environ.pop("DASHSCOPE_API_KEY", None)
+    os.environ.pop("QWEN_API_KEY", None)
+
     config.addinivalue_line("markers", "unit: memory_core unit tests (no server)")
     config.addinivalue_line("markers", "api: FastAPI TestClient API regression (no live server)")
     config.addinivalue_line(

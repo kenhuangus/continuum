@@ -1,33 +1,31 @@
 # Evaluations
 
-## Smoke eval (Phase A)
+## Smoke eval
 
 ```bash
 python evals/run_smoke.py
 ```
 
-Uses `evals/fixtures/acme_session_a_b.json`:
+Uses `evals/fixtures/acme_session_a_b.json` (VIP / discount supersession / email). Offline — no API key.
 
-1. Ingest Session A turns (VIP, 12% discount, email preference)
-2. Pack for Session B query under tight budget with `type_quota`
-3. Assert expected signals present without exceeding budget
+## Full suite
 
-Runs offline — no Qwen API key required.
+```bash
+python evals/run_suite.py
+# or: python -m continuum_eval  (evals/ on PYTHONPATH)
+pytest -m eval -q
+```
+
+Baselines per fixture: `no_memory`, `full_history_dump`, `naive_topk_keyword`, `continuum_pack`.
+
+Metrics: critical-fact recall@budget, stale leakage after supersession, token use.
+
+Pass criterion: aggregate Continuum recall ≥ naive and stale leakage ≤ naive.
 
 ## Browser UI regression
 
-Prefer the pytest e2e suite (Playwright):
-
 ```bash
-pip install -e ".[dev]"
-playwright install chromium
 pytest -m e2e
 ```
 
-See [tests/README.md](../tests/README.md). The legacy script `evals/browser_ui_test.py` is a thin wrapper that invokes `pytest -m e2e`.
-
-## Future
-
-- Retrieval recall@k benchmarks
-- Forgetting regression suite
-- Pack efficiency metrics
+See [tests/README.md](../tests/README.md).

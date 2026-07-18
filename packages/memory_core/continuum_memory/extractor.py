@@ -31,7 +31,24 @@ _STOP_ENTITIES = {
     "That",
     "User",
     "Assistant",
+    "SLA",
+    "VIP",
+    "API",
+    "CEO",
+    "CTO",
+    "Corp",
+    "Inc",
+    "Ltd",
+    "LLC",
 }
+
+_ENTITY_TRAILING_NOISE = {"sla", "vip", "uptime", "response", "discount", "owner"}
+
+
+def _clean_entity_name(name: str) -> str:
+    parts = [p for p in name.split() if p.lower() not in _ENTITY_TRAILING_NOISE]
+    cleaned = " ".join(parts).strip()
+    return cleaned or name
 
 
 def is_pure_interrogative(text: str) -> bool:
@@ -95,10 +112,14 @@ def _primary_entity(text: str) -> str | None:
         text,
     )
     if m:
-        return m.group(0)
+        return _clean_entity_name(m.group(0))
     for m2 in re.finditer(r"\b([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+){0,2})\b", text):
-        name = m2.group(1)
-        if name not in _STOP_ENTITIES and name.lower() not in {s.lower() for s in _STOP_ENTITIES}:
+        name = _clean_entity_name(m2.group(1))
+        if not name:
+            continue
+        if name not in _STOP_ENTITIES and name.lower() not in {
+            s.lower() for s in _STOP_ENTITIES
+        }:
             return name
     return None
 
@@ -253,21 +274,23 @@ def extract_heuristic(
 
     sla_match = re.search(
         r"(?i)(?:sla\s+)?uptime\s*(?:of|is|:)?\s*(\d+(?:\.\d+)?)\s*%"
-        r"|(?:sla)\s*(?:of|is|:)?\s*(\d+(?:\.\d+)?)\s*%"
-        r"|(?:sla|response)\s*(?:of|within|is|:)?\s*(\d+)\s*(?:hours?|hrs?|h)\b",
+        r"|sla\s*(?:of|is|:)\s*(\d+(?:\.\d+)?)\s*%"
+        r"|sla\s+response\s*(?:of|within|is|:)?\s*(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b"
+        r"|response\s*(?:of|within|is|:)?\s*(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)\b.{0,20}\bsla\b",
         text,
     )
     if not is_question and sla_match:
-        ent_name = entity or "Service"
+        ent_name = _clean_entity_name(entity or "Service")
         ents = _entity_aliases(ent_name)
         pct = sla_match.group(1) or sla_match.group(2)
-        hours = sla_match.group(3)
+        hours = sla_match.group(3) or sla_match.group(4)
         if pct:
             content = f"{ent_name} SLA uptime is {pct}%."
             slots: dict[str, Any] = {"sla_pct": float(pct), "entity": ents[0]}
         else:
+            # Keep "N hours" phrasing so eval critical_facts like "1 hours" match.
             content = f"{ent_name} SLA response is {hours} hours."
-            slots = {"sla_hours": int(hours), "entity": ents[0]}
+            slots = {"sla_hours": float(hours), "entity": ents[0]}
         add(
             _new_memory(
                 org_id=org_id,

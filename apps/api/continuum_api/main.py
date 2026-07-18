@@ -168,12 +168,6 @@ class RememberRequest(BaseModel):
     slots: dict[str, Any] = Field(default_factory=dict)
 
 
-class ForgetRequest(BaseModel):
-    workspace_id: str
-    reason: str = "manual"
-    confirm_hitl: bool = False
-
-
 def _idempotency_get(key: str | None) -> Any | None:
     if not key:
         return None
@@ -316,14 +310,10 @@ def get_memory(memory_id: str, workspace_id: str = Query(...)) -> dict:
 @app.post("/v1/memories/{memory_id}/forget")
 def forget_memory(
     memory_id: str,
-    workspace_id: str | None = Query(None),
-    body: ForgetRequest | None = None,
+    workspace_id: str = Query(...),
+    reason: str = Query("manual"),
 ) -> dict:
-    ws = workspace_id or (body.workspace_id if body else None)
-    if not ws:
-        raise HTTPException(status_code=422, detail="workspace_id is required")
-    reason = body.reason if body else "manual"
-    result = memory_service.forget(memory_id, reason=reason, workspace_id=ws)
+    result = memory_service.forget(memory_id, reason=reason, workspace_id=workspace_id)
     if not result.get("forgotten"):
         if result.get("hitl_required"):
             return result

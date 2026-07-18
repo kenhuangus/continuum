@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -21,6 +22,11 @@ from continuum_eval import (  # noqa: E402
 
 
 def main() -> int:
+    os.environ.setdefault("CONTINUUM_AUTH_DISABLED", "1")
+    os.environ["CONTINUUM_FORCE_LOCAL_EMBED"] = "1"
+    os.environ.pop("DASHSCOPE_API_KEY", None)
+    os.environ.pop("QWEN_API_KEY", None)
+
     fixtures = load_fixtures()
     if not fixtures:
         print("No fixtures found under evals/fixtures/")

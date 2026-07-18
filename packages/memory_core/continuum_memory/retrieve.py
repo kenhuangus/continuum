@@ -93,6 +93,10 @@ def retrieve_candidates(
     if not active:
         return []
 
+    # Small workspaces: skip ranking loss — pack all active memories as candidates.
+    if len(active) <= top_k:
+        return active
+
     sparse = sparse_retrieve(active, query, top_k=top_k, entities=entities)
     dense = dense_retrieve(active, query, top_k=top_k)
 

@@ -122,6 +122,31 @@ def test_extract_slots_discount_vip():
     assert slots.get("vip") is True
 
 
+def test_complementary_sla_slots_do_not_conflict():
+    """Uptime % and response hours are different slots — must both stay active."""
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        db_path = tmp.name
+    try:
+        store = MemoryStore(db_path)
+        uptime = _mem(
+            "Skyline SLA uptime is 99.95%.",
+            entities=["Skyline"],
+            slots={"sla_pct": 99.95, "entity": "Skyline"},
+        )
+        response = _mem(
+            "Skyline SLA response is 1 hours.",
+            entities=["Skyline"],
+            slots={"sla_hours": 1.0, "entity": "Skyline"},
+        )
+        store.remember(uptime)
+        store.remember(response)
+        apply_supersession(store, [response])
+        active = store.list_by_workspace("ws1", MemoryStatus.ACTIVE)
+        assert {m.id for m in active} == {uptime.id, response.id}
+    finally:
+        Path(db_path).unlink(missing_ok=True)
+
+
 def test_reject_pure_interrogatives():
     assert is_pure_interrogative("What discount does Acme get?")
     mems = extract_heuristic(
