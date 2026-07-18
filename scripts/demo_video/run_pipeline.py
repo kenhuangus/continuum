@@ -21,12 +21,12 @@ from tts_qwen import QwenTTSError, synthesize_beats as qwen_synthesize_beats  # 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = REPO_ROOT / "demo_video"
 
-# Voice quality ranking (human neural first; SAPI last resort):
-# 1. Qwen TTS (if DASHSCOPE_API_KEY / QWEN_API_KEY)
-# 2. edge-tts neural (Jenny)
+# Voice quality ranking (product demo prefers neural Jenny; SAPI last resort):
+# 1. edge-tts neural (en-US-JennyNeural) — default for Continuum product tour
+# 2. Qwen TTS (if DASHSCOPE_API_KEY / QWEN_API_KEY)
 # 3. Windows SAPI (robotic — avoid as primary)
 # 4. silent slideshow
-TTS_RANKING = ("qwen", "edge", "sapi", "silent")
+TTS_RANKING = ("edge", "qwen", "sapi", "silent")
 
 
 def write_status(mode: str, notes: str, *, speed: float = NARRATION_SPEED) -> None:
@@ -81,7 +81,7 @@ def write_chapters_readme(mode: str, speed: float) -> None:
 
 
 def run_tts(*, silent: bool, skip_tts: bool, speed: float) -> str:
-    """Return tts mode: qwen | edge | sapi | silent. Always applies `speed` via atempo when audio exists."""
+    """Return tts mode: edge | qwen | sapi | silent. Always applies `speed` via atempo when audio exists."""
     audio_dir = OUT_DIR / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
 
@@ -104,47 +104,62 @@ def run_tts(*, silent: bool, skip_tts: bool, speed: float) -> str:
     mode = "silent"
     notes = ""
 
+    # Prefer edge-tts Jenny neural for product demos (human voice, no competition branding).
     try:
-        qwen_synthesize_beats(BEATS, audio_dir)
-        mode = "qwen"
-        notes = "Qwen Cloud intl TTS (qwen3-tts-flash) succeeded."
-    except QwenTTSError as exc:
-        print(f"Qwen TTS unavailable: {exc}")
-        print("Trying edge-tts (neural)...")
+        print("Synthesizing with edge-tts (en-US-JennyNeural)...")
+        edge_synthesize_beats(BEATS, audio_dir)
+        mode = "edge"
+        notes = "edge-tts neural voice (en-US-JennyNeural)."
+    except EdgeTTSError as edge_exc:
+        print(f"edge-tts failed: {edge_exc}")
+        print("Trying Qwen TTS...")
         try:
-            edge_synthesize_beats(BEATS, audio_dir)
-            mode = "edge"
-            notes = f"Qwen failed ({exc}); used edge-tts neural voice."
-        except EdgeTTSError as edge_exc:
-            print(f"edge-tts failed: {edge_exc}")
+            qwen_synthesize_beats(BEATS, audio_dir)
+            mode = "qwen"
+            notes = f"edge failed ({edge_exc}); used Qwen Cloud TTS."
+        except QwenTTSError as qwen_exc:
+            print(f"Qwen TTS unavailable: {qwen_exc}")
             print("Falling back to Windows SAPI (robotic — last resort)...")
             try:
                 sapi_synthesize_beats(BEATS, audio_dir)
                 mode = "sapi"
-                notes = f"Qwen failed ({exc}); edge failed ({edge_exc}); used SAPI."
+                notes = f"edge failed ({edge_exc}); qwen failed ({qwen_exc}); used SAPI."
             except Exception as sapi_exc:
                 print(f"SAPI failed: {sapi_exc}")
                 write_status(
                     "silent",
-                    f"All TTS failed; silent. qwen={exc}; edge={edge_exc}; sapi={sapi_exc}",
+                    f"All TTS failed; silent. edge={edge_exc}; qwen={qwen_exc}; sapi={sapi_exc}",
                     speed=speed,
                 )
                 return "silent"
-    except Exception as exc:
-        print(f"Qwen TTS unexpected error: {exc}")
-        try:
-            edge_synthesize_beats(BEATS, audio_dir)
-            mode = "edge"
-            notes = f"Qwen error ({exc}); used edge-tts."
-        except Exception as edge_exc:
+        except Exception as qwen_exc:
+            print(f"Qwen TTS unexpected error: {qwen_exc}")
             try:
                 sapi_synthesize_beats(BEATS, audio_dir)
                 mode = "sapi"
-                notes = f"Qwen/edge failed; SAPI. qwen={exc}; edge={edge_exc}"
+                notes = f"edge/qwen failed; SAPI. edge={edge_exc}; qwen={qwen_exc}"
             except Exception as sapi_exc:
                 write_status(
                     "silent",
-                    f"All TTS failed. qwen={exc}; edge={edge_exc}; sapi={sapi_exc}",
+                    f"All TTS failed. edge={edge_exc}; qwen={qwen_exc}; sapi={sapi_exc}",
+                    speed=speed,
+                )
+                return "silent"
+    except Exception as edge_exc:
+        print(f"edge-tts unexpected error: {edge_exc}")
+        try:
+            qwen_synthesize_beats(BEATS, audio_dir)
+            mode = "qwen"
+            notes = f"edge error ({edge_exc}); used Qwen TTS."
+        except Exception as qwen_exc:
+            try:
+                sapi_synthesize_beats(BEATS, audio_dir)
+                mode = "sapi"
+                notes = f"edge/qwen failed; SAPI. edge={edge_exc}; qwen={qwen_exc}"
+            except Exception as sapi_exc:
+                write_status(
+                    "silent",
+                    f"All TTS failed. edge={edge_exc}; qwen={qwen_exc}; sapi={sapi_exc}",
                     speed=speed,
                 )
                 return "silent"

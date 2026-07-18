@@ -1,7 +1,7 @@
-"""Playwright UI tour: screenshots + optional screencast for Continuum demo video.
+"""Playwright UI tour: dense multi-view screencast + frames for Continuum demo video.
 
 Hardened for: server bootstrap, auth-disabled demo mode, flaky selectors after UI redesign,
-empty frames, timeouts, and navigation across Chat / Memory Graph / Packer Lab / Policies.
+empty frames, timeouts, and field-level navigation across Chat / Memory Graph / Packer Lab / Policies.
 """
 from __future__ import annotations
 
@@ -21,6 +21,8 @@ VIEWPORT = {"width": 1440, "height": 900}
 # Selector timeouts after UI redesign — generous but bounded
 NAV_TIMEOUT_MS = 15000
 CHAT_TIMEOUT_MS = 90000
+# Expected frame count must match narration.BEATS
+EXPECTED_FRAMES = 18
 
 
 def _port_open(host: str, port: int) -> bool:
@@ -50,8 +52,8 @@ def _api_features_ok(url: str) -> bool:
 
         base = url.rstrip("/")
         # 422 = route exists but missing required query; 404 = old binary without route
-        s = httpx.get(f"{base}/v1/memories/stats", timeout=3.0)
-        g = httpx.get(f"{base}/v1/memories/graph", timeout=3.0)
+        s = httpx.get(f"{base}/v1/memories/stats", timeout=3.0, params={"workspace_id": "_probe"})
+        g = httpx.get(f"{base}/v1/memories/graph", timeout=3.0, params={"workspace_id": "_probe"})
         if s.status_code == 404 or g.status_code == 404:
             return False
         return True
@@ -136,7 +138,7 @@ def ensure_server(base_url: str, timeout_s: float = 50.0) -> subprocess.Popen[An
                 "Start manually: CONTINUUM_AUTH_DISABLED=1 uvicorn continuum_api.main:app "
                 "--host 127.0.0.1 --port 8000"
             )
-        if _health_ok(url):
+        if _health_ok(url) and _api_features_ok(url):
             return proc
         time.sleep(0.35)
 
@@ -165,7 +167,6 @@ def _wait_chat_reply(page: Any, prev_msg_count: int, timeout_ms: int = CHAT_TIME
           if (!log) return false;
           const msgs = log.querySelectorAll('.msg');
           if (msgs.length <= {int(prev_msg_count)}) return false;
-          // Prefer an assistant/system reply after the user message
           return true;
         }}""",
         timeout=timeout_ms,
@@ -178,7 +179,6 @@ def _send_message(page: Any, text: str) -> None:
     page.fill("#messageInput", text)
     page.click("#sendBtn")
     _wait_chat_reply(page, prev)
-    # Wait until send button re-enabled (sending=false)
     try:
         page.wait_for_function(
             "() => !document.getElementById('sendBtn')?.disabled",
@@ -192,11 +192,12 @@ def _shot(page: Any, path: Path, *, min_bytes: int = 8_000) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     page.screenshot(path=str(path), full_page=False)
     if not path.is_file() or path.stat().st_size < min_bytes:
-        # Retry once
         page.wait_for_timeout(400)
         page.screenshot(path=str(path), full_page=False)
     if not path.is_file() or path.stat().st_size < min_bytes:
-        raise RuntimeError(f"Empty or tiny screenshot: {path} ({path.stat().st_size if path.is_file() else 0} bytes)")
+        raise RuntimeError(
+            f"Empty or tiny screenshot: {path} ({path.stat().st_size if path.is_file() else 0} bytes)"
+        )
 
 
 def _goto_view(page: Any, view: str) -> None:
@@ -207,7 +208,23 @@ def _goto_view(page: Any, view: str) -> None:
         f"() => document.querySelector('.view.active')?.dataset?.viewPanel === '{view}'",
         timeout=NAV_TIMEOUT_MS,
     )
-    page.wait_for_timeout(350)
+    page.wait_for_timeout(400)
+
+
+def _focus_field(page: Any, selector: str) -> None:
+    try:
+        page.locator(selector).click(timeout=3000)
+        page.wait_for_timeout(200)
+    except Exception:
+        pass
+
+
+def _set_range(page: Any, selector: str, value: int) -> None:
+    page.locator(selector).evaluate(
+        f"el => {{ el.value = {int(value)}; el.dispatchEvent(new Event('input')); "
+        f"el.dispatchEvent(new Event('change')); }}"
+    )
+    page.wait_for_timeout(250)
 
 
 def _assert_no_banned_chrome(page: Any) -> None:
@@ -256,9 +273,8 @@ def capture_frames(
             page = context.new_page()
             page.set_default_timeout(NAV_TIMEOUT_MS)
 
-            # Retry navigation once (cold start)
             last_err: Exception | None = None
-            for attempt in range(2):
+            for _attempt in range(2):
                 try:
                     page.goto(f"{url}/", wait_until="domcontentloaded", timeout=30000)
                     page.wait_for_selector("h1", timeout=NAV_TIMEOUT_MS)
@@ -274,10 +290,11 @@ def capture_frames(
                 raise RuntimeError(f"Expected Continuum brand in h1, got: {title!r}")
             _assert_no_banned_chrome(page)
 
-            # Fresh workspace before hero so the inspector is empty (avoid dirty shared server state)
+            # Fresh workspace before hero
             _goto_view(page, "chat")
             page.fill("#workspaceId", workspace_id)
             page.fill("#orgId", "org_demo")
+            page.fill("#apiKey", "")
             page.evaluate("document.getElementById('sessionId').value = 'session-a'")
             page.evaluate(
                 """() => {
@@ -287,52 +304,104 @@ def capture_frames(
                   o && o.dispatchEvent(new Event('change'));
                 }"""
             )
-            page.wait_for_timeout(600)
+            page.wait_for_timeout(700)
 
+            # 01 intro / hero
             mark("01_intro", "Hero / Chat")
             p01 = frames_dir / "01_hero.png"
             _shot(page, p01)
             paths.append(p01)
+            page.wait_for_timeout(900)
 
-            mark("02_session_a_vip", "VIP memory")
-            _send_message(page, "Remember: Acme is a VIP customer.")
-            p02 = frames_dir / "02_session_a_vip.png"
+            # 02 field-level: workspace / session / org / api key
+            mark("02_chat_fields", "Workspace & session fields")
+            _focus_field(page, "#workspaceId")
+            page.wait_for_timeout(400)
+            _focus_field(page, "#sessionId")
+            page.wait_for_timeout(350)
+            _focus_field(page, "#orgId")
+            page.wait_for_timeout(350)
+            _focus_field(page, "#apiKey")
+            page.wait_for_timeout(400)
+            p02 = frames_dir / "02_chat_fields.png"
             _shot(page, p02)
             paths.append(p02)
 
-            mark("03_session_a_discount", "Discount memory")
-            _send_message(page, "Remember: Approved 12% discount for Acme through end of 2026.")
-            p03 = frames_dir / "03_session_a_discount.png"
+            # 03 budget + packer algo + buttons
+            mark("03_budget_algo", "Budget & packer controls")
+            _set_range(page, "#budget", 900)
+            page.select_option("#packerAlgo", "type_quota")
+            page.wait_for_timeout(300)
+            _focus_field(page, "#budget")
+            page.wait_for_timeout(400)
+            _focus_field(page, "#packerAlgo")
+            page.wait_for_timeout(400)
+            page.hover("#newSession")
+            page.wait_for_timeout(300)
+            page.hover("#forgetPass")
+            page.wait_for_timeout(400)
+            p03 = frames_dir / "03_budget_algo.png"
             _shot(page, p03)
             paths.append(p03)
 
-            mark("04_session_a_pref", "Preference + Active tab")
+            # 04 VIP
+            mark("04_session_a_vip", "VIP memory")
+            _send_message(page, "Remember: Acme is a VIP customer.")
+            page.wait_for_timeout(600)
+            p04 = frames_dir / "04_session_a_vip.png"
+            _shot(page, p04)
+            paths.append(p04)
+
+            # 05 discount
+            mark("05_session_a_discount", "Discount memory")
+            _send_message(page, "Remember: Approved 12% discount for Acme through end of 2026.")
+            page.wait_for_timeout(600)
+            p05 = frames_dir / "05_session_a_discount.png"
+            _shot(page, p05)
+            paths.append(p05)
+
+            # 06 preference + Active tab
+            mark("06_session_a_pref", "Preference + Active tab")
             _send_message(page, "Remember: Acme prefers email communication over phone.")
             page.click("#statusTabs .tab[data-status='active']")
-            page.wait_for_timeout(400)
+            page.wait_for_timeout(500)
             try:
                 page.wait_for_selector("#memoryList .memory-card", timeout=20000)
             except Exception:
                 page.wait_for_timeout(1000)
-            p04 = frames_dir / "04_session_a_pref.png"
-            _shot(page, p04)
-            paths.append(p04)
-
-            mark("05_new_session", "New Session")
-            page.click("#newSession")
-            page.wait_for_timeout(500)
-            p05 = frames_dir / "05_new_session.png"
-            _shot(page, p05)
-            paths.append(p05)
-
-            mark("06_recall_citations", "Session B recall")
-            _send_message(page, "What discount does Acme get and are they VIP?")
-            page.wait_for_timeout(700)
-            p06 = frames_dir / "06_recall_citations.png"
+            try:
+                page.locator("#memoryList .memory-card").first.click(timeout=5000)
+                page.wait_for_timeout(400)
+            except Exception:
+                pass
+            p06 = frames_dir / "06_session_a_pref.png"
             _shot(page, p06)
             paths.append(p06)
 
-            mark("07_packer_chat", "Packer panel")
+            # 07 new session
+            mark("07_new_session", "New Session")
+            page.click("#newSession")
+            page.wait_for_timeout(700)
+            _focus_field(page, "#sessionId")
+            page.wait_for_timeout(400)
+            p07 = frames_dir / "07_new_session.png"
+            _shot(page, p07)
+            paths.append(p07)
+
+            # 08 recall + citations
+            mark("08_recall_citations", "Session B recall")
+            _send_message(page, "What discount does Acme get and are they VIP?")
+            page.wait_for_timeout(900)
+            try:
+                page.wait_for_selector("#chatLog .cite", timeout=15000)
+            except Exception:
+                print("  WARNING: citations not visible — continuing")
+            p08 = frames_dir / "08_recall_citations.png"
+            _shot(page, p08)
+            paths.append(p08)
+
+            # 09 packer panel + tighter budget
+            mark("09_packer_chat", "Packer panel")
             try:
                 page.wait_for_function(
                     """() => {
@@ -343,34 +412,83 @@ def capture_frames(
                 )
             except Exception:
                 print("  WARNING: packMeta did not show Algorithm — continuing")
-            try:
-                page.locator("#budget").evaluate(
-                    "el => { el.value = 600; el.dispatchEvent(new Event('input')); }"
-                )
-            except Exception:
-                pass
-            page.wait_for_timeout(300)
-            p07 = frames_dir / "07_packer_chat.png"
-            _shot(page, p07)
-            paths.append(p07)
+            _set_range(page, "#budget", 600)
+            page.wait_for_timeout(500)
+            p09 = frames_dir / "09_packer_chat.png"
+            _shot(page, p09)
+            paths.append(p09)
 
-            mark("08_memory_graph", "Memory Graph view")
+            # 10 inspector lifecycle tabs
+            mark("10_inspector_tabs", "Inspector lifecycle")
+            for status in ("superseded", "forgotten", "active"):
+                try:
+                    page.click(f"#statusTabs .tab[data-status='{status}']")
+                    page.wait_for_timeout(550)
+                except Exception:
+                    pass
+            p10 = frames_dir / "10_inspector_tabs.png"
+            _shot(page, p10)
+            paths.append(p10)
+
+            # 11 Memory Graph
+            mark("11_memory_graph", "Memory Graph view")
             _goto_view(page, "memory")
-            page.wait_for_timeout(800)
+            page.wait_for_timeout(900)
             try:
                 page.click("#refreshStats")
-                page.wait_for_timeout(600)
+                page.wait_for_timeout(800)
             except Exception:
                 pass
-            p08 = frames_dir / "08_memory_graph.png"
-            _shot(page, p08)
-            paths.append(p08)
+            p11 = frames_dir / "11_memory_graph.png"
+            _shot(page, p11)
+            paths.append(p11)
 
-            mark("09_packer_lab", "Packer Lab")
+            # 12 graph filters + select memory
+            mark("12_graph_filters", "Graph filters & detail")
+            for status in ("active", "superseded", "forgotten", "active"):
+                try:
+                    page.click(f"#graphStatusTabs .tab[data-status='{status}']")
+                    page.wait_for_timeout(500)
+                except Exception:
+                    pass
+            try:
+                page.locator("#graphMemoryList .memory-card").first.click(timeout=8000)
+                page.wait_for_timeout(700)
+            except Exception:
+                try:
+                    # Click first graph node circle if list empty
+                    page.locator("#graphSvg circle").first.click(timeout=5000)
+                    page.wait_for_timeout(600)
+                except Exception:
+                    print("  WARNING: no graph memory to select")
+            p12 = frames_dir / "12_graph_filters.png"
+            _shot(page, p12)
+            paths.append(p12)
+
+            # 13 Packer Lab fields
+            mark("13_packer_lab_fields", "Packer Lab controls")
             _goto_view(page, "packer")
+            page.wait_for_timeout(500)
             page.fill("#packQuery", "What discount does Acme get?")
+            _set_range(page, "#labBudget", 800)
+            page.select_option("#labAlgo", "type_quota")
+            _focus_field(page, "#packQuery")
+            page.wait_for_timeout(350)
+            _focus_field(page, "#labBudget")
+            page.wait_for_timeout(350)
+            _focus_field(page, "#labAlgo")
+            page.wait_for_timeout(350)
+            _focus_field(page, "#asOf")
+            page.wait_for_timeout(400)
+            p13 = frames_dir / "13_packer_lab_fields.png"
+            _shot(page, p13)
+            paths.append(p13)
+
+            # 14 tight budget pack
+            mark("14_packer_run_tight", "Tight budget pack")
+            _set_range(page, "#labBudget", 400)
             page.click("#runPack")
-            page.wait_for_timeout(1200)
+            page.wait_for_timeout(1400)
             try:
                 page.wait_for_function(
                     """() => {
@@ -380,39 +498,87 @@ def capture_frames(
                     timeout=30000,
                 )
             except Exception:
-                print("  WARNING: Packer Lab preview slow — continuing")
-            p09 = frames_dir / "09_packer_lab.png"
-            _shot(page, p09)
-            paths.append(p09)
+                print("  WARNING: Packer Lab tight preview slow — continuing")
+            try:
+                page.locator("#labPackList .memory-card, #labPackList .pack-item").first.click(timeout=5000)
+                page.wait_for_timeout(400)
+                page.click("#runExplain")
+                page.wait_for_timeout(800)
+            except Exception:
+                pass
+            p14 = frames_dir / "14_packer_run_tight.png"
+            _shot(page, p14)
+            paths.append(p14)
 
-            mark("10_policies_forget", "Policies / forgetting")
+            # 15 wider budget + mmr
+            mark("15_packer_run_wide", "Wider budget pack")
+            _set_range(page, "#labBudget", 1600)
+            page.select_option("#labAlgo", "mmr")
+            page.click("#runPack")
+            page.wait_for_timeout(1400)
+            try:
+                page.wait_for_function(
+                    """() => {
+                      const el = document.getElementById('labPackMeta');
+                      return el && (el.innerText.includes('Algorithm:') || el.innerText.includes('Error'));
+                    }""",
+                    timeout=30000,
+                )
+            except Exception:
+                print("  WARNING: Packer Lab wide preview slow — continuing")
+            p15 = frames_dir / "15_packer_run_wide.png"
+            _shot(page, p15)
+            paths.append(p15)
+
+            # 16 Policies RBAC / policy tags
+            mark("16_policies_rbac", "Policies org & RBAC")
             _goto_view(page, "admin")
+            page.wait_for_timeout(500)
+            _focus_field(page, "#orgId")
+            page.wait_for_timeout(350)
+            _focus_field(page, "#apiKey")
+            page.wait_for_timeout(350)
+            try:
+                page.click("#pingHealth")
+                page.wait_for_timeout(700)
+            except Exception:
+                pass
+            try:
+                page.click("#loadPolicyMemories")
+                page.wait_for_timeout(900)
+            except Exception:
+                pass
+            p16 = frames_dir / "16_policies_rbac.png"
+            _shot(page, p16)
+            paths.append(p16)
+
+            # 17 forget + consolidate
+            mark("17_policies_forget", "Forget & consolidate")
             try:
                 page.click("#adminForget")
-                page.wait_for_timeout(1000)
+                page.wait_for_timeout(1200)
             except Exception as exc:
                 print(f"  WARNING: admin forget click: {exc}")
             try:
-                page.click("#loadPolicyMemories")
-                page.wait_for_timeout(500)
-            except Exception:
-                pass
-            p10 = frames_dir / "10_policies_forget.png"
-            _shot(page, p10)
-            paths.append(p10)
+                page.click("#adminConsolidate")
+                page.wait_for_timeout(1200)
+            except Exception as exc:
+                print(f"  WARNING: admin consolidate click: {exc}")
+            p17 = frames_dir / "17_policies_forget.png"
+            _shot(page, p17)
+            paths.append(p17)
 
-            mark("11_close", "Back to Chat close")
+            # 18 close back on chat
+            mark("18_close", "Back to Chat close")
             _goto_view(page, "chat")
-            # Cycle status tabs to show lifecycle
-            for status in ("superseded", "forgotten", "active"):
-                try:
-                    page.click(f"#statusTabs .tab[data-status='{status}']")
-                    page.wait_for_timeout(350)
-                except Exception:
-                    pass
-            p11 = frames_dir / "11_close.png"
-            _shot(page, p11)
-            paths.append(p11)
+            page.click("#statusTabs .tab[data-status='active']")
+            page.wait_for_timeout(600)
+            p18 = frames_dir / "18_close.png"
+            _shot(page, p18)
+            paths.append(p18)
+
+            # Dwell so screencast covers closing narration
+            page.wait_for_timeout(1500)
 
             page_video = page.video if record_video else None
             context.close()
@@ -449,8 +615,8 @@ def capture_frames(
     finally:
         _stop_proc(proc)
 
-    if len(paths) < 11:
-        raise RuntimeError(f"Expected 11 frames, got {len(paths)}")
+    if len(paths) < EXPECTED_FRAMES:
+        raise RuntimeError(f"Expected {EXPECTED_FRAMES} frames, got {len(paths)}")
     return paths
 
 
