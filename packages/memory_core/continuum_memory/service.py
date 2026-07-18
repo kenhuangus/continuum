@@ -13,9 +13,16 @@ from continuum_memory.retrieve import retrieve_candidates
 from continuum_memory.schemas import Memory, MemoryStatus, PackedContext
 from continuum_memory.store_base import create_store
 from continuum_memory.supersession import apply_supersession, extract_slots
-from continuum_memory.explain import explain_pack, explain_memory_inclusion
+from continuum_memory.explain import (
+    explain_pack,
+    explain_pack_structured,
+    explain_memory_inclusion,
+    explain_memory_structured,
+)
 from continuum_memory.graph import link_on_remember
 from continuum_memory.consolidate import consolidate_workspace
+from continuum_memory.policy import apply_policy_on_write, filter_by_policy
+from continuum_memory.scoring import maybe_assign_llm_importance
 
 logger = logging.getLogger("continuum.pack")
 
@@ -40,6 +47,8 @@ class MemoryService:
     def remember(self, memory: Memory) -> Memory:
         if not memory.slots:
             memory.slots = extract_slots(memory.content, memory.entities)
+        maybe_assign_llm_importance(memory, self.client)
+        apply_policy_on_write(memory)
         stored = self.store.remember(memory)
         apply_supersession(self.store, [stored])
         fresh = self.store.get(stored.id) or stored
@@ -72,6 +81,8 @@ class MemoryService:
             mem.source.setdefault("session_id", session_id)
             if not mem.slots:
                 mem.slots = extract_slots(mem.content, mem.entities)
+            maybe_assign_llm_importance(mem, self.client)
+            apply_policy_on_write(mem)
             stored = self.store.remember(mem)
             if stored.id == mem.id:
                 written.append(stored)
@@ -108,15 +119,32 @@ class MemoryService:
         as_of: datetime | None = None,
         org_id: str | None = None,
     ) -> list[Memory]:
+        # Point-in-time: when as_of is set and caller asks for ACTIVE (or None),
+        # include superseded facts still effective at that instant.
+        list_status = status
+        if as_of is not None and status in (None, MemoryStatus.ACTIVE):
+            list_status = None
         try:
-            return self.store.list_by_workspace(
-                workspace_id, status, as_of=as_of, org_id=org_id
+            items = self.store.list_by_workspace(
+                workspace_id, list_status, as_of=as_of, org_id=org_id
             )
         except TypeError:
             try:
-                return self.store.list_by_workspace(workspace_id, status, as_of=as_of)
+                items = self.store.list_by_workspace(
+                    workspace_id, list_status, as_of=as_of
+                )
             except TypeError:
-                return self.store.list_by_workspace(workspace_id, status)
+                items = self.store.list_by_workspace(workspace_id, list_status)
+        if as_of is not None:
+            items = [m for m in items if m.status != MemoryStatus.FORGOTTEN]
+            if status == MemoryStatus.ACTIVE:
+                # Historically "true" at as_of — ACTIVE or SUPERSEDED with window
+                items = [
+                    m
+                    for m in items
+                    if m.status in (MemoryStatus.ACTIVE, MemoryStatus.SUPERSEDED)
+                ]
+        return items
 
     def forget(
         self,
@@ -176,6 +204,7 @@ class MemoryService:
             as_of=as_of,
             org_id=org_id,
         )
+        candidates = filter_by_policy(candidates)
         packed = pack_context(candidates, query, budget_tokens, algorithm)
         packed.candidate_count = len(candidates)
 
@@ -189,6 +218,9 @@ class MemoryService:
                 pass
 
         packed.explanations = explain_pack(
+            candidates, packed, query, budget_tokens, algorithm
+        )
+        packed.explanation_details = explain_pack_structured(
             candidates, packed, query, budget_tokens, algorithm
         )
 
@@ -224,8 +256,11 @@ class MemoryService:
         budget_tokens: int = 1500,
         *,
         org_id: str | None = None,
-    ) -> str:
+        structured: bool = False,
+    ) -> str | dict:
         packed = self.pack(workspace_id, query, budget_tokens, org_id=org_id)
+        if structured:
+            return explain_memory_structured(memory_id, packed, query=query)
         return explain_memory_inclusion(memory_id, packed)
 
     def get(

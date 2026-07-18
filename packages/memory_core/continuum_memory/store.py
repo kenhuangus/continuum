@@ -216,10 +216,17 @@ class MemoryStore:
     def _effective_at(self, mem: Memory, as_of: datetime | None) -> bool:
         if as_of is None:
             return True
-        if mem.effective_from and mem.effective_from > as_of:
-            return False
-        if mem.effective_to and mem.effective_to < as_of:
-            return False
+        as_of_aware = as_of if as_of.tzinfo else as_of.replace(tzinfo=timezone.utc)
+        ef = mem.effective_from
+        et = mem.effective_to
+        if ef is not None:
+            ef = ef if ef.tzinfo else ef.replace(tzinfo=timezone.utc)
+            if ef > as_of_aware:
+                return False
+        if et is not None:
+            et = et if et.tzinfo else et.replace(tzinfo=timezone.utc)
+            if et < as_of_aware:
+                return False
         return True
 
     def remember(self, memory: Memory) -> Memory:

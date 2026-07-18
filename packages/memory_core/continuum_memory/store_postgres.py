@@ -144,10 +144,19 @@ class PostgresMemoryStore:
     def _effective_at(self, mem: Memory, as_of) -> bool:
         if as_of is None:
             return True
-        if mem.effective_from and mem.effective_from > as_of:
-            return False
-        if mem.effective_to and mem.effective_to < as_of:
-            return False
+        from datetime import timezone
+
+        as_of_aware = as_of if getattr(as_of, "tzinfo", None) else as_of.replace(tzinfo=timezone.utc)
+        ef = mem.effective_from
+        et = mem.effective_to
+        if ef is not None:
+            ef = ef if ef.tzinfo else ef.replace(tzinfo=timezone.utc)
+            if ef > as_of_aware:
+                return False
+        if et is not None:
+            et = et if et.tzinfo else et.replace(tzinfo=timezone.utc)
+            if et < as_of_aware:
+                return False
         return True
 
     def _memory_values(self, memory: Memory) -> dict[str, Any]:

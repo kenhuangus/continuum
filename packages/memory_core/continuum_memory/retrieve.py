@@ -140,22 +140,28 @@ def retrieve_candidates(
     org_id: str | None = None,
 ) -> list[Memory]:
     """Hybrid sparse + dense retrieve; returns deduped candidate union only."""
+    # Point-in-time (as_of): include SUPERSEDED rows still effective at that time;
+    # exclude FORGOTTEN. Without as_of: ACTIVE only (current truth).
+    status_filter = None if as_of is not None else MemoryStatus.ACTIVE
     if hasattr(store, "list_by_workspace"):
         try:
             active = store.list_by_workspace(
-                workspace_id, MemoryStatus.ACTIVE, as_of=as_of, org_id=org_id
+                workspace_id, status_filter, as_of=as_of, org_id=org_id
             )
         except TypeError:
             try:
                 active = store.list_by_workspace(
-                    workspace_id, MemoryStatus.ACTIVE, as_of=as_of
+                    workspace_id, status_filter, as_of=as_of
                 )
             except TypeError:
-                active = store.list_by_workspace(workspace_id, MemoryStatus.ACTIVE)
+                active = store.list_by_workspace(workspace_id, status_filter)
             if org_id is not None:
                 active = [m for m in active if m.org_id == org_id]
     else:
         active = []
+
+    if as_of is not None:
+        active = [m for m in active if m.status != MemoryStatus.FORGOTTEN]
 
     if not active:
         return []

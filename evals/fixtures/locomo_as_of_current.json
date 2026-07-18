@@ -1,0 +1,39 @@
+{
+  "workspace_id": "locomo_as_of_current",
+  "org_id": "org_demo",
+  "budget_tokens": 400,
+  "critical_facts": ["22%", "Slack"],
+  "stale_facts": ["8%"],
+  "seed_memories": [
+    {
+      "id": "cur-old-discount",
+      "type": "decision",
+      "content": "Approved 8% discount for Horizon Labs.",
+      "entities": ["Horizon Labs"],
+      "status": "superseded",
+      "effective_from": "2025-01-01T00:00:00+00:00",
+      "effective_to": "2025-06-30T23:59:59+00:00",
+      "slots": {"discount_pct": 8}
+    },
+    {
+      "id": "cur-new-discount",
+      "type": "decision",
+      "content": "Approved 22% discount for Horizon Labs for the renewal.",
+      "entities": ["Horizon Labs"],
+      "effective_from": "2025-07-01T00:00:00+00:00",
+      "slots": {"discount_pct": 22}
+    },
+    {
+      "id": "cur-new-pref",
+      "type": "preference",
+      "content": "Horizon Labs prefers Slack contact.",
+      "entities": ["Horizon Labs"],
+      "effective_from": "2025-07-01T00:00:00+00:00",
+      "slots": {"contact_channel": "Slack"}
+    }
+  ],
+  "session_b": {
+    "session_id": "s-b",
+    "query": "What is Horizon Labs current discount and contact preference?"
+  }
+}

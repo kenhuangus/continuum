@@ -60,6 +60,19 @@ forget pass | consolidate(workspace) distill episodic→semantic
 | L2.3 | Ablation report JSON artifact under `evals/reports/` |
 | L2.4 | MCP HTTP transport (optional) — stdio remains primary |
 
+### Loop 4 — landed (2026-07-18)
+
+| ID | Task | Honest claim |
+|----|------|--------------|
+| L4.1 | Optional LLM importance (`CONTINUUM_LLM_IMPORTANCE`) | Blend into `Memory.importance` — not Generative Agents reflection trees |
+| L4.2 | Consolidate uses LLM client when present | Sync reflection-*style* stub — not Letta sleep-time queue |
+| L4.3 | `policy.py` PII/retention stubs | Heuristic tags + pack exclude — not GDPR product |
+| L4.4 | Structured explain + `cite_overlap` + HTTP `/v1/memories/explain` | Lexical overlap — not NLI faithfulness |
+| L4.5 | As-of LoCoMo-*style* fixtures | Synthetic PIT — not official LoCoMo dump |
+| L4.6 | `CONTINUUM_API_KEY_ROLES` reader/writer/admin | Env-map RBAC — not OAuth |
+
+See [`LOOP4_NOTES.md`](./LOOP4_NOTES.md).
+
 ---
 
 ## MCP / HTTP contracts (agents as clients)

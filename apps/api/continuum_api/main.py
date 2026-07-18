@@ -88,20 +88,68 @@ def _api_key_org_map() -> dict[str, str]:
     return {str(k): str(v) for k, v in parsed.items()}
 
 
+def _api_key_roles() -> dict[str, dict[str, str]]:
+    """Parse CONTINUUM_API_KEY_ROLES='{"key":{"org":"org_a","role":"reader"}}'.
+
+    Roles: reader | writer | admin. Lightweight env-map RBAC — not OAuth.
+    """
+    raw = os.environ.get("CONTINUUM_API_KEY_ROLES", "")
+    if not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("Invalid CONTINUUM_API_KEY_ROLES JSON; ignoring")
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    out: dict[str, dict[str, str]] = {}
+    for k, v in parsed.items():
+        if isinstance(v, dict):
+            role = str(v.get("role", "writer")).lower()
+            if role not in ("reader", "writer", "admin"):
+                role = "writer"
+            out[str(k)] = {
+                "org": str(v.get("org", "org_demo")),
+                "role": role,
+            }
+        elif isinstance(v, str):
+            out[str(k)] = {"org": "org_demo", "role": str(v).lower()}
+    return out
+
+
 def _valid_api_keys() -> set[str]:
     raw = os.environ.get("CONTINUUM_API_KEYS", "")
     keys = {k.strip() for k in raw.split(",") if k.strip()}
     keys.update(_api_key_org_map().keys())
+    keys.update(_api_key_roles().keys())
     return keys
 
 
 def _resolve_org_id(api_key: str | None) -> str:
-    """Resolve org for an authenticated key: KEY_MAP entry, else default org_demo."""
+    """Resolve org for an authenticated key: ROLES map, KEY_MAP, else org_demo."""
     if api_key:
+        roles = _api_key_roles()
+        if api_key in roles:
+            return roles[api_key].get("org") or "org_demo"
         org = _api_key_org_map().get(api_key)
         if org:
             return org
     return "org_demo"
+
+
+def _resolve_role(api_key: str | None) -> str:
+    """Resolve RBAC role.
+
+    Keys listed in CONTINUUM_API_KEY_ROLES use that role. Keys only in
+    CONTINUUM_API_KEYS / CONTINUUM_API_KEY_MAP default to **admin** so Loop 3
+    forget/IDOR behavior is preserved when roles are not configured.
+    """
+    if api_key:
+        roles = _api_key_roles()
+        if api_key in roles:
+            return roles[api_key].get("role") or "writer"
+    return "admin"
 
 
 def _resolve_request_org(request: Request, body_org_id: str | None) -> str:
@@ -122,6 +170,18 @@ def _resolve_request_org(request: Request, body_org_id: str | None) -> str:
             )
         return resolved
     return body_org_id or "org_demo"
+
+
+def _require_role(request: Request, *allowed: str) -> None:
+    """Enforce lightweight role when auth is enabled; no-op in demo mode."""
+    if _auth_disabled():
+        return
+    role = getattr(request.state, "role", None) or "writer"
+    if role not in allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Role '{role}' is not permitted for this operation",
+        )
 
 
 def _extract_api_key(request: Request) -> str | None:
@@ -184,8 +244,10 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
                     status_code=401, content={"detail": "Invalid or missing API key"}
                 )
             request.state.org_id = _resolve_org_id(api_key)
+            request.state.role = _resolve_role(api_key)
         else:
             request.state.org_id = None
+            request.state.role = "admin"
 
         bucket = api_key or (request.client.host if request.client else "anon")
         rpm = _rate_limit_rpm()
@@ -200,7 +262,7 @@ app.add_middleware(AuthRateLimitMiddleware)
 
 
 class ChatRequest(BaseModel):
-    org_id: str = "org_demo"
+    org_id: str | None = None
     workspace_id: str
     session_id: str
     message: str
@@ -209,7 +271,7 @@ class ChatRequest(BaseModel):
 
 
 class RememberRequest(BaseModel):
-    org_id: str = "org_demo"
+    org_id: str | None = None
     workspace_id: str
     type: MemoryType = MemoryType.SEMANTIC
     content: str
@@ -250,6 +312,7 @@ def health() -> dict:
 
 @app.post("/v1/chat")
 def chat(req: ChatRequest, request: Request) -> dict:
+    _require_role(request, "writer", "admin")
     idem = request.headers.get("Idempotency-Key")
     cached = _idempotency_get(idem)
     if cached is not None:
@@ -280,6 +343,7 @@ def chat(req: ChatRequest, request: Request) -> dict:
             "algorithm": pack.algorithm,
             "budget_tokens": pack.budget_tokens,
             "explanations": pack.explanations,
+            "explanation_details": pack.explanation_details,
             "candidate_count": pack.candidate_count,
         },
         "memories_written": [m.model_dump(mode="json") for m in written],
@@ -298,6 +362,7 @@ def list_memories(
     as_of: str | None = Query(None),
     org_id: str | None = Query(None),
 ) -> dict:
+    _require_role(request, "reader", "writer", "admin")
     org = _resolve_request_org(request, org_id)
     as_of_dt = None
     if as_of:
@@ -316,6 +381,7 @@ def list_memories(
 def create_memory(req: RememberRequest, request: Request) -> dict:
     from datetime import datetime, timezone
 
+    _require_role(request, "writer", "admin")
     idem = request.headers.get("Idempotency-Key")
     cached = _idempotency_get(idem)
     if cached is not None:
@@ -356,6 +422,7 @@ def pack_preview(
     as_of: str | None = Query(None),
     org_id: str | None = Query(None),
 ) -> dict:
+    _require_role(request, "reader", "writer", "admin")
     org = _resolve_request_org(request, org_id)
     as_of_dt = None
     if as_of:
@@ -366,8 +433,34 @@ def pack_preview(
     return pack.model_dump(mode="json")
 
 
+@app.get("/v1/memories/explain")
+def explain_memory(
+    request: Request,
+    memory_id: str = Query(...),
+    workspace_id: str = Query(...),
+    query: str = Query(""),
+    budget: int = Query(1500),
+    org_id: str | None = Query(None),
+) -> dict:
+    """Structured pack-inclusion explain with lexical cite_overlap."""
+    _require_role(request, "reader", "writer", "admin")
+    org = _resolve_request_org(request, org_id)
+    result = memory_service.explain(
+        memory_id,
+        workspace_id,
+        query,
+        budget_tokens=budget,
+        org_id=org,
+        structured=True,
+    )
+    if isinstance(result, dict):
+        return result
+    return {"explanation": result, "cite_overlap": 0.0, "details": {}}
+
+
 @app.post("/v1/memories/consolidate")
 def consolidate_memories(req: ConsolidateRequest, request: Request) -> dict:
+    _require_role(request, "writer", "admin")
     org = _resolve_request_org(request, req.org_id)
     written = memory_service.consolidate(req.workspace_id, max_groups=req.max_groups, org_id=org)
     return {
@@ -383,6 +476,7 @@ def get_memory(
     workspace_id: str = Query(...),
     org_id: str | None = Query(None),
 ) -> dict:
+    _require_role(request, "reader", "writer", "admin")
     org = _resolve_request_org(request, org_id)
     mem = memory_service.get(memory_id, workspace_id=workspace_id, org_id=org)
     if not mem:
@@ -397,6 +491,7 @@ def forget_memory(
     reason: str = Query("manual"),
     org_id: str | None = Query(None),
 ) -> dict:
+    _require_role(request, "admin")
     org = _resolve_request_org(request, org_id)
     result = memory_service.forget(memory_id, reason=reason, workspace_id=workspace_id, org_id=org)
     if not result.get("forgotten"):
@@ -412,6 +507,7 @@ def run_forgetting(
     workspace_id: str = Query(...),
     org_id: str | None = Query(None),
 ) -> dict:
+    _require_role(request, "admin")
     org = _resolve_request_org(request, org_id)
     events = memory_service.run_forgetting_pass(workspace_id, org_id=org)
     return {"events": events, "count": len(events)}

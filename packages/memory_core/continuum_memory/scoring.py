@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import json
+import logging
+import os
 from datetime import datetime, timezone
 from typing import Any
 
 from continuum_memory.schemas import Memory, MemoryType
+
+logger = logging.getLogger("continuum.scoring")
 
 _TYPE_PRIOR: dict[MemoryType, float] = {
     MemoryType.DECISION: 1.0,
@@ -60,6 +65,70 @@ def importance_score(memory: Memory) -> float:
     if imp is not None:
         return 0.5 * _normalize_importance(float(imp)) + 0.5 * base
     return base
+
+
+def llm_importance_enabled() -> bool:
+    return os.environ.get("CONTINUUM_LLM_IMPORTANCE", "").lower() in ("1", "true", "yes")
+
+
+def score_importance_with_llm(content: str, client: Any) -> float | None:
+    """Ask an LLM for 1–10 importance; return normalized [0,1] or None on failure.
+
+    Honest scope: optional blend into Memory.importance — not Generative Agents
+    full reflection trees. Requires CONTINUUM_LLM_IMPORTANCE=1 at call sites.
+    """
+    if client is None or not content or not str(content).strip():
+        return None
+    system = (
+        "Rate how important this memory is for a long-term agent memory store. "
+        "Return JSON only: {\"importance\": <number 1-10>} where 10 is critical "
+        "durable fact and 1 is trivial/ephemeral."
+    )
+    user = f"Memory content:\n{content.strip()[:2000]}"
+    try:
+        result = client.chat_json(system, user)
+    except Exception:
+        logger.debug("score_importance_with_llm failed", exc_info=True)
+        return None
+
+    raw: Any = None
+    if isinstance(result, dict):
+        raw = result.get("importance", result.get("score"))
+    elif isinstance(result, list) and result:
+        first = result[0]
+        if isinstance(first, dict):
+            raw = first.get("importance", first.get("score"))
+        elif isinstance(first, (int, float)):
+            raw = first
+    elif isinstance(result, (int, float)):
+        raw = result
+    elif isinstance(result, str):
+        try:
+            parsed = json.loads(result)
+            if isinstance(parsed, dict):
+                raw = parsed.get("importance", parsed.get("score"))
+        except json.JSONDecodeError:
+            return None
+
+    if raw is None:
+        return None
+    try:
+        return _normalize_importance(float(raw))
+    except (TypeError, ValueError):
+        return None
+
+
+def maybe_assign_llm_importance(memory: Memory, client: Any | None) -> Memory:
+    """Set memory.importance from LLM when flag+client present; else leave unchanged."""
+    if not llm_importance_enabled() or client is None:
+        return memory
+    if memory.importance is not None:
+        return memory
+    scored = score_importance_with_llm(memory.content, client)
+    if scored is not None:
+        memory.importance = scored
+        memory.source = {**(memory.source or {}), "importance_source": "llm"}
+    return memory
 
 
 def _sparse_overlap(memory: Memory, query: str) -> float:

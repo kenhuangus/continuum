@@ -58,6 +58,22 @@ def _fact_present(fact: str, text: str) -> bool:
     return f2 in t2
 
 
+def _parse_dt(value: Any):
+    from datetime import datetime, timezone
+
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    s = str(value).strip()
+    if not s:
+        return None
+    dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def _seed_memories(svc: MemoryService, fx: dict[str, Any]) -> None:
     import uuid
     from datetime import datetime, timezone
@@ -75,12 +91,22 @@ def _seed_memories(svc: MemoryService, fx: dict[str, Any]) -> None:
             entities=list(raw.get("entities") or []),
             confidence=float(raw.get("confidence", 1.0)),
             utility=float(raw.get("utility", 1.0)),
+            importance=float(raw["importance"]) if raw.get("importance") is not None else None,
             status=MemoryStatus(raw.get("status", "active")),
-            created_at=now,
-            last_accessed_at=now,
+            effective_from=_parse_dt(raw.get("effective_from")),
+            effective_to=_parse_dt(raw.get("effective_to")),
+            created_at=_parse_dt(raw.get("created_at")) or now,
+            last_accessed_at=_parse_dt(raw.get("last_accessed_at")) or now,
             source=raw.get("source") or {"seed": True},
+            policy_tags=list(raw.get("policy_tags") or []),
+            slots=dict(raw.get("slots") or {}),
         )
         svc.remember(mem)
+
+
+def _fixture_as_of(fx: dict[str, Any]):
+    session_b = fx.get("session_b") or {}
+    return _parse_dt(session_b.get("as_of") or fx.get("as_of"))
 
 
 def _ingest_session_a(svc: MemoryService, fx: dict[str, Any]) -> None:
@@ -111,7 +137,8 @@ def baseline_no_memory(fx: dict[str, Any]) -> BaselineResult:
 
 def baseline_full_history_dump(svc: MemoryService, fx: dict[str, Any]) -> BaselineResult:
     ws = fx["workspace_id"]
-    active = svc.list_memories(ws, MemoryStatus.ACTIVE)
+    as_of = _fixture_as_of(fx)
+    active = svc.list_memories(ws, MemoryStatus.ACTIVE, as_of=as_of)
     text = " ".join(m.content for m in active)
     tokens = estimate_tokens(text)
     critical = fx["critical_facts"]
@@ -133,7 +160,8 @@ def baseline_naive_topk_keyword(svc: MemoryService, fx: dict[str, Any]) -> Basel
     ws = fx["workspace_id"]
     query = fx["session_b"]["query"]
     budget = int(fx["budget_tokens"])
-    active = svc.list_memories(ws, MemoryStatus.ACTIVE)
+    as_of = _fixture_as_of(fx)
+    active = svc.list_memories(ws, MemoryStatus.ACTIVE, as_of=as_of)
     q_tokens = [t for t in query.lower().split() if t]
 
     def _kw_score(m: Memory) -> int:
@@ -169,7 +197,10 @@ def baseline_continuum_pack(svc: MemoryService, fx: dict[str, Any]) -> BaselineR
     ws = fx["workspace_id"]
     query = fx["session_b"]["query"]
     budget = int(fx["budget_tokens"])
-    packed = svc.pack(ws, query, budget_tokens=budget, algorithm="type_quota")
+    as_of = _fixture_as_of(fx)
+    packed = svc.pack(
+        ws, query, budget_tokens=budget, algorithm="type_quota", as_of=as_of
+    )
     text = " ".join(m.content for m in packed.memories)
     critical = fx["critical_facts"]
     stale = fx.get("stale_facts") or []
@@ -194,17 +225,23 @@ def run_ablation_rir(fx: dict[str, Any]) -> dict[str, float]:
         db_path = tmp.name
     svc = MemoryService(db_path=db_path)
     _seed_memories(svc, fx)
-    _ingest_session_a(svc, fx)
+    if fx.get("session_a"):
+        _ingest_session_a(svc, fx)
     ws = fx["workspace_id"]
     query = fx["session_b"]["query"]
     budget = int(fx["budget_tokens"])
+    as_of = _fixture_as_of(fx)
 
     prev = os.environ.get("CONTINUUM_DISABLE_RIR")
     try:
         os.environ.pop("CONTINUUM_DISABLE_RIR", None)
-        with_rir = svc.pack(ws, query, budget_tokens=budget, algorithm="type_quota")
+        with_rir = svc.pack(
+            ws, query, budget_tokens=budget, algorithm="type_quota", as_of=as_of
+        )
         os.environ["CONTINUUM_DISABLE_RIR"] = "1"
-        without_rir = svc.pack(ws, query, budget_tokens=budget, algorithm="type_quota")
+        without_rir = svc.pack(
+            ws, query, budget_tokens=budget, algorithm="type_quota", as_of=as_of
+        )
     finally:
         if prev is None:
             os.environ.pop("CONTINUUM_DISABLE_RIR", None)
@@ -234,7 +271,8 @@ def run_fixture(fx: dict[str, Any]) -> dict[str, Any]:
         db_path = tmp.name
     svc = MemoryService(db_path=db_path)
     _seed_memories(svc, fx)
-    _ingest_session_a(svc, fx)
+    if fx.get("session_a"):
+        _ingest_session_a(svc, fx)
 
     results = [
         baseline_no_memory(fx),

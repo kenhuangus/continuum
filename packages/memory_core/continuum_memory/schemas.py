@@ -73,6 +73,7 @@ class PackedContext(BaseModel):
     token_estimate: int
     algorithm: str
     explanations: list[str] = Field(default_factory=list)
+    explanation_details: list[dict[str, Any]] = Field(default_factory=list)
     query: str = ""
     budget_tokens: int = 0
     candidate_count: int = 0

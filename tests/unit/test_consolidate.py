@@ -57,6 +57,28 @@ def test_consolidate_distills_episodics_and_tags_sources():
         Path(db_path).unlink(missing_ok=True)
 
 
+def test_consolidate_llm_path_tags_reflection():
+    class FakeClient:
+        def chat_json(self, system: str, user: str):
+            return {"summary": "Acme pricing and VIP confirmed."}
+
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
+        db_path = tmp.name
+    try:
+        svc = MemoryService(db_path=db_path, client=FakeClient())
+        svc.remember(_episodic("Acme meeting discussed pricing."))
+        svc.remember(_episodic("Acme follow-up confirmed VIP status."))
+        written = svc.consolidate("ws1")
+        assert len(written) == 1
+        assert "reflection" in written[0].policy_tags
+        assert written[0].source.get("path") == "llm"
+        assert "Acme pricing" in written[0].content or written[0].content.startswith(
+            "Distilled:"
+        )
+    finally:
+        Path(db_path).unlink(missing_ok=True)
+
+
 def test_consolidate_skips_singleton_groups():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as tmp:
         db_path = tmp.name

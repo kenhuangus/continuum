@@ -15,6 +15,7 @@ def _reload_api(monkeypatch, tmp_path, key_map: dict[str, str]):
     monkeypatch.setenv("CONTINUUM_API_KEY_MAP", json.dumps(key_map))
     monkeypatch.delenv("CONTINUUM_AUTH_DISABLED", raising=False)
     monkeypatch.delenv("CONTINUUM_API_KEYS", raising=False)
+    monkeypatch.delenv("CONTINUUM_API_KEY_ROLES", raising=False)
 
     import continuum_api.main as main_mod
 

@@ -73,7 +73,7 @@ Within a candidate set C:
 Then min-max each to [0,1] over C;  
 `score = α_r * recency + α_i * importance + α_rel * relevance` with α=1.
 
-**Not claimed:** identical LLM importance prompts from the paper unless `CONTINUUM_LLM_IMPORTANCE=1` and API key present.
+**Not claimed:** identical LLM importance prompts from the paper unless `CONTINUUM_LLM_IMPORTANCE=1` and a client is present (Loop 4: `score_importance_with_llm` / `maybe_assign_llm_importance`).
 
 ---
 
