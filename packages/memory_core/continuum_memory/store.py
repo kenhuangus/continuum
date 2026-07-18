@@ -109,7 +109,8 @@ class MemoryStore:
                     supersedes TEXT NOT NULL DEFAULT '[]',
                     slots TEXT NOT NULL DEFAULT '{}',
                     policy_tags TEXT NOT NULL DEFAULT '[]',
-                    version INTEGER NOT NULL DEFAULT 1
+                    version INTEGER NOT NULL DEFAULT 1,
+                    importance REAL
                 );
                 CREATE INDEX IF NOT EXISTS idx_memories_workspace
                     ON memories(workspace_id, status);
@@ -135,10 +136,40 @@ class MemoryStore:
                 conn.execute(
                     "ALTER TABLE memories ADD COLUMN slots TEXT NOT NULL DEFAULT '{}'"
                 )
+            if "importance" not in cols:
+                conn.execute(
+                    "ALTER TABLE memories ADD COLUMN importance REAL"
+                )
+
+            conn.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS memory_edges (
+                    id TEXT PRIMARY KEY,
+                    workspace_id TEXT NOT NULL,
+                    src_id TEXT NOT NULL,
+                    dst_id TEXT NOT NULL,
+                    relation TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_edges_src
+                    ON memory_edges(workspace_id, src_id);
+                CREATE INDEX IF NOT EXISTS idx_edges_dst
+                    ON memory_edges(workspace_id, dst_id);
+
+                CREATE TABLE IF NOT EXISTS embed_cache (
+                    memory_id TEXT PRIMARY KEY,
+                    content_hash TEXT NOT NULL,
+                    dim INT NOT NULL,
+                    vector TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                """
+            )
 
     def _row_to_memory(self, row: sqlite3.Row) -> Memory:
         keys = row.keys()
         slots_raw = row["slots"] if "slots" in keys else "{}"
+        importance = row["importance"] if "importance" in keys else None
         return Memory(
             id=row["id"],
             org_id=row["org_id"],
@@ -148,6 +179,7 @@ class MemoryStore:
             entities=json.loads(row["entities"]),
             confidence=row["confidence"],
             utility=row["utility"],
+            importance=importance,
             status=MemoryStatus(row["status"]),
             effective_from=_str_to_dt(row["effective_from"]),
             effective_to=_str_to_dt(row["effective_to"]),
@@ -189,8 +221,8 @@ class MemoryStore:
                     id, org_id, workspace_id, type, content, entities,
                     confidence, utility, status, effective_from, effective_to,
                     created_at, last_accessed_at, source, superseded_by,
-                    supersedes, slots, policy_tags, version
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    supersedes, slots, policy_tags, version, importance
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     memory.id,
@@ -212,6 +244,7 @@ class MemoryStore:
                     json.dumps(memory.slots or {}),
                     json.dumps(memory.policy_tags),
                     memory.version,
+                    memory.importance,
                 ),
             )
         return memory
@@ -380,4 +413,109 @@ class MemoryStore:
             conn.execute(
                 "UPDATE memories SET utility = ? WHERE id = ?",
                 (utility, memory_id),
+            )
+
+    def update_policy_tags(self, memory_id: str, tags: list[str]) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE memories SET policy_tags = ? WHERE id = ?",
+                (json.dumps(list(tags or [])), memory_id),
+            )
+
+    def add_edge(
+        self,
+        workspace_id: str,
+        src_id: str,
+        dst_id: str,
+        relation: str,
+    ) -> str:
+        edge_id = str(uuid.uuid4())
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO memory_edges (id, workspace_id, src_id, dst_id, relation, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    edge_id,
+                    workspace_id,
+                    src_id,
+                    dst_id,
+                    relation,
+                    _dt_to_str(_utcnow()),
+                ),
+            )
+        return edge_id
+
+    def edges_for(self, workspace_id: str, memory_id: str) -> list[dict[str, Any]]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, workspace_id, src_id, dst_id, relation, created_at
+                FROM memory_edges
+                WHERE workspace_id = ? AND (src_id = ? OR dst_id = ?)
+                """,
+                (workspace_id, memory_id, memory_id),
+            ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "workspace_id": r["workspace_id"],
+                "src_id": r["src_id"],
+                "dst_id": r["dst_id"],
+                "relation": r["relation"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+
+    def get_many(self, ids: list[str]) -> list[Memory]:
+        if not ids:
+            return []
+        placeholders = ",".join("?" for _ in ids)
+        with self._conn() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM memories WHERE id IN ({placeholders})",
+                list(ids),
+            ).fetchall()
+        by_id = {r["id"]: self._row_to_memory(r) for r in rows}
+        return [by_id[i] for i in ids if i in by_id]
+
+    def get_embed_cache(self, memory_id: str) -> tuple[str, list[float]] | None:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT content_hash, vector FROM embed_cache WHERE memory_id = ?",
+                (memory_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        try:
+            vector = json.loads(row["vector"])
+            if not isinstance(vector, list):
+                return None
+            return row["content_hash"], [float(x) for x in vector]
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return None
+
+    def put_embed_cache(
+        self, memory_id: str, content_hash: str, vector: list[float]
+    ) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO embed_cache (memory_id, content_hash, dim, vector, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(memory_id) DO UPDATE SET
+                    content_hash = excluded.content_hash,
+                    dim = excluded.dim,
+                    vector = excluded.vector,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    memory_id,
+                    content_hash,
+                    len(vector),
+                    json.dumps(vector),
+                    _dt_to_str(_utcnow()),
+                ),
             )

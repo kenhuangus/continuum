@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+import os
+
+from continuum_memory.embed_cache import get_or_embed
 from continuum_memory.embeddings import cosine_similarity, embed_text
 from continuum_memory.schemas import Memory, MemoryStatus
+from continuum_memory.scoring import combined_rir_scores
+
+
+def _rir_disabled() -> bool:
+    return os.environ.get("CONTINUUM_DISABLE_RIR", "").lower() in ("1", "true", "yes")
 
 
 def _sparse_score(memory: Memory, query: str, entities: list[str] | None) -> float:
@@ -52,22 +60,44 @@ def dense_retrieve(
     memories: list[Memory],
     query: str,
     top_k: int = 50,
+    store=None,
 ) -> list[Memory]:
+    ranked, _sims = dense_retrieve_with_sims(memories, query, top_k=top_k, store=store)
+    return ranked
+
+
+def dense_retrieve_with_sims(
+    memories: list[Memory],
+    query: str,
+    top_k: int = 50,
+    store=None,
+) -> tuple[list[Memory], dict[str, float]]:
     if not memories:
-        return []
+        return [], {}
     q_vec = embed_text(query or " ")
     scored: list[tuple[float, Memory]] = []
+    sims: dict[str, float] = {}
     for mem in memories:
-        text = f"{mem.content} {' '.join(mem.entities)}"
-        m_vec = embed_text(text)
-        scored.append((cosine_similarity(q_vec, m_vec), mem))
+        m_vec = get_or_embed(store, mem)
+        sim = cosine_similarity(q_vec, m_vec)
+        sims[mem.id] = sim
+        scored.append((sim, mem))
     scored.sort(key=lambda x: x[0], reverse=True)
-    # Drop near-zero similarity when we have a real query
     if (query or "").strip():
         positive = [m for s, m in scored if s > 0.05]
         if positive:
-            return positive[:top_k]
-    return [m for _, m in scored[:top_k]]
+            return positive[:top_k], sims
+    return [m for _, m in scored[:top_k]], sims
+
+
+def _build_dense_sims(memories: list[Memory], query: str, store=None) -> dict[str, float]:
+    if not memories:
+        return {}
+    q_vec = embed_text(query or " ")
+    sims: dict[str, float] = {}
+    for mem in memories:
+        sims[mem.id] = cosine_similarity(q_vec, get_or_embed(store, mem))
+    return sims
 
 
 def retrieve_candidates(
@@ -98,7 +128,9 @@ def retrieve_candidates(
         return active
 
     sparse = sparse_retrieve(active, query, top_k=top_k, entities=entities)
-    dense = dense_retrieve(active, query, top_k=top_k)
+    dense, dense_sims = dense_retrieve_with_sims(
+        active, query, top_k=top_k, store=store
+    )
 
     seen: set[str] = set()
     merged: list[Memory] = []
@@ -117,4 +149,29 @@ def retrieve_candidates(
                 seen.add(mem.id)
                 merged.append(mem)
 
-    return merged
+    # Optional 1-hop graph expansion before RIR
+    try:
+        from continuum_memory.graph import expand_neighbors
+
+        neighbors = expand_neighbors(
+            store, workspace_id, [m.id for m in merged], limit=20
+        )
+        for mem in neighbors:
+            if mem.id not in seen:
+                seen.add(mem.id)
+                merged.append(mem)
+    except Exception:
+        pass
+
+    if _rir_disabled():
+        return merged[: top_k * 2]
+
+    # Dense sims for RIR: reuse dense path sims; fill gaps for graph neighbors
+    sims = {mid: dense_sims[mid] for mid in dense_sims if mid in seen}
+    missing = [m for m in merged if m.id not in sims]
+    if missing:
+        sims.update(_build_dense_sims(missing, query, store=store))
+
+    scores = combined_rir_scores(merged, query, dense_sims=sims)
+    ranked = sorted(merged, key=lambda m: scores.get(m.id, 0.0), reverse=True)
+    return ranked[: top_k * 2]

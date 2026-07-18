@@ -165,3 +165,39 @@ Continuum Phase A is a **credible demo substrate** for Track-1 storytelling (typ
 | HITL forget | Env-gated flag only |
 
 **Updated verdict:** Scientifically **stronger** than Phase A (retrieval + eval + slots) but still short of literature-grade memory systems. SaaS **closer** (auth, AuthZ, MCP, quotas) but **not** production multi-tenant cloud yet.
+
+---
+
+## Progress after upgrade (science Loop 1–2, 2026-07-18)
+
+Research docs: [`docs/research/AGENT_MEMORY_SURVEY.md`](research/AGENT_MEMORY_SURVEY.md), [`IMPROVEMENT_PLAN.md`](research/IMPROVEMENT_PLAN.md), [`MEMORY_ARCHITECTURE_V2.md`](research/MEMORY_ARCHITECTURE_V2.md).
+
+### Newly shipped (science-honest)
+
+| Item | Status | Literature link (inspiration ≠ full paper claim) |
+|------|--------|--------------------------------------------------|
+| RIR scoring (recency × importance × relevance) | **Shipped** — `scoring.py`; wired into retrieve re-rank + pack; `CONTINUUM_DISABLE_RIR` ablation | Park et al. Generative Agents (approx. importance; not LLM 1–10 by default) |
+| Memory graph 1-hop | **Shipped** — `graph.py` + `memory_edges` table; entity `related_to` + supersedes edges | HippoRAG/A-MEM *subset* only — **no** Personalized PageRank |
+| Episodic→semantic consolidate | **Shipped** — heuristic distill; `POST /v1/memories/consolidate` + MCP `memory_consolidate` | Reflection stub, not full Generative Agents reflection trees |
+| Embed cache | **Shipped** — content-hash cache for dense retrieve | Scale hygiene, not ANN |
+| Stress evals vs true keyword-naive baseline | **Shipped** — `stress_noise_budget`, `stress_stale_leakage`; Continuum aggregate recall **0.985** vs naive **0.909** | Literature-aligned recall@budget + stale leakage |
+
+### Verified gates
+
+- `pytest -m "unit or api or eval"` → **44 passed**
+- `python evals/run_suite.py` → **PASS** (continuum ≥ naive on recall and stale)
+- Stress WINs: both stress fixtures (stale fixture: Continuum recall 1.0 / stale 0.0 vs naive 0.0 / 1.0)
+
+### Remaining gaps (do not overclaim)
+
+| Gap | Notes |
+|-----|-------|
+| `stress_noise_budget` still leaks stale `8%` under tight budget | Ranking/packing tradeoff; open |
+| True BM25 / ANN vector DB | Still in-process scan + cache |
+| LLM importance + sleep-time Letta compute | Not implemented |
+| HippoRAG PPR multi-hop | Only 1-hop edges |
+| LoCoMo / LongMemEval parity | Fixture suite only |
+| Postgres multi-tenant SaaS / OAuth | Unchanged |
+| Alibaba free-tier cloud | Blocked; do not claim production cloud |
+
+**Verdict after Loop 1–2:** Scientifically **credible hackathon Memory OS** with literature-aligned scoring, consolidation stub, graph edges, and eval wins under stress — still **not** a full research reproduction of HippoRAG/MemGPT/Mem0, and **not** production multi-tenant cloud SaaS.

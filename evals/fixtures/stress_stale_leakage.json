@@ -1,0 +1,131 @@
+{
+  "workspace_id": "stress_stale_leakage",
+  "org_id": "org_demo",
+  "budget_tokens": 50,
+  "critical_facts": ["12%"],
+  "stale_facts": ["10%"],
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {
+        "user": "We tentatively offered a 10% discount for Acme.",
+        "assistant": "Noted the tentative 10% for Acme."
+      },
+      {
+        "user": "Approved 12% discount for Acme — this supersedes the earlier 10% offer.",
+        "assistant": "Recorded the approved 12% Acme decision."
+      }
+    ]
+  },
+  "session_b": {
+    "session_id": "s-b",
+    "query": "What is the current Acme discount"
+  },
+  "seed_memories": [
+    {
+      "id": "noise_a01",
+      "type": "episodic",
+      "content": "Keyword trap: the current Acme discount rumor people cite is still 10% from cafeteria flyers weather codes parking garage swag store coffee cart referral vouchers hotel bookings.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.99
+    },
+    {
+      "id": "noise_a02",
+      "type": "episodic",
+      "content": "Another current Acme discount distractor repeating 10% across cafeteria weather parking swag coffee referral hotel intern spreadsheet charity facilities marketing notes.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.99
+    },
+    {
+      "id": "noise_a03",
+      "type": "episodic",
+      "content": "Noise: current Acme discount chatter still says 10% in cafeteria flyers weather codes parking garage swag store coffee cart referral hotel rates intern packets.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.98
+    },
+    {
+      "id": "noise_a04",
+      "type": "episodic",
+      "content": "More current Acme discount 10% noise about cafeteria weather parking swag coffee referral hotel intern spreadsheet charity facilities marketing support notes.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.98
+    },
+    {
+      "id": "noise_a05",
+      "type": "episodic",
+      "content": "Distractor current Acme discount mentions 10% again with cafeteria weather parking swag coffee referral hotel intern legacy charity facilities marketing filler.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.97
+    },
+    {
+      "id": "noise_a06",
+      "type": "episodic",
+      "content": "Yet another current Acme discount 10% trap spanning cafeteria flyers weather parking swag coffee referral hotel intern spreadsheet charity facilities drafts.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.97
+    },
+    {
+      "id": "noise_a07",
+      "type": "episodic",
+      "content": "Keyword-heavy current Acme discount text with 10% amid cafeteria weather parking swag coffee referral hotel intern spreadsheet charity marketing notes.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.96
+    },
+    {
+      "id": "noise_a08",
+      "type": "episodic",
+      "content": "Still noise: people say the current Acme discount is 10% citing cafeteria weather parking swag coffee referral hotel intern legacy charity catalog notes.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.96
+    },
+    {
+      "id": "noise_a09",
+      "type": "episodic",
+      "content": "Filler current Acme discount 10% distractor covering cafeteria newsletter weather codes parking garage swag coffee referral vouchers hotel intern packets.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.95
+    },
+    {
+      "id": "noise_a10",
+      "type": "episodic",
+      "content": "Noise log current Acme discount 10% from cafeteria weather parking swag coffee referral hotel intern spreadsheet charity facilities marketing — ignore.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.95
+    },
+    {
+      "id": "noise_a11",
+      "type": "episodic",
+      "content": "Extra current Acme discount 10% noise with cafeteria weather parking swag coffee referral hotel intern legacy charity facilities marketing catalog notes.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.94
+    },
+    {
+      "id": "noise_a12",
+      "type": "episodic",
+      "content": "Final current Acme discount distractor still pushing 10% via cafeteria weather parking swag coffee referral hotel intern spreadsheet charity meeting notes.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.94
+    },
+    {
+      "id": "noise_a13",
+      "type": "episodic",
+      "content": "Bonus current Acme discount 10% trap text cafeteria weather parking swag coffee referral hotel intern legacy charity facilities marketing support notes.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.93
+    },
+    {
+      "id": "noise_a14",
+      "type": "episodic",
+      "content": "Additional current Acme discount 10% distractor spanning cafeteria flyers weather parking early bird swag coffee referral hotel intern legacy sheet notes.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.93
+    },
+    {
+      "id": "noise_a15",
+      "type": "episodic",
+      "content": "Last current Acme discount 10% noise block cafeteria weather parking swag coffee referral hotel intern spreadsheet charity facilities marketing notes.",
+      "entities": ["Acme", "discount"],
+      "utility": 0.92
+    }
+  ]
+}

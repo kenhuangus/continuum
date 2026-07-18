@@ -45,6 +45,29 @@ def main() -> int:
             f"stale={c['stale_leakage']:.2f} | naive recall={n['recall']:.2f} "
             f"stale={n['stale_leakage']:.2f}"
         )
+        abl = row.get("ablations") or {}
+        if "recall_rir_on" in abl:
+            print(
+                f"    ablation RIR: on={abl['recall_rir_on']:.2f} "
+                f"off={abl['recall_rir_off']:.2f}"
+            )
+
+    stress_wins: list[str] = []
+    for row in rows:
+        name = row["fixture"]
+        if not str(name).startswith("stress_"):
+            continue
+        c = row["baselines"]["continuum_pack"]
+        n = row["baselines"]["naive_topk_keyword"]
+        if c["recall"] > n["recall"] or c["stale_leakage"] < n["stale_leakage"]:
+            stress_wins.append(name)
+
+    print("\n=== Stress fixtures (continuum recall > naive OR continuum stale < naive) ===")
+    if stress_wins:
+        for name in stress_wins:
+            print(f"  WIN: {name}")
+    else:
+        print("  (none — soft; aggregate gate still applies)")
 
     agg = aggregate(rows)
     print("\n=== Aggregate ===")

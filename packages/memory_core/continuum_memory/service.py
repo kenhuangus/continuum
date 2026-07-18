@@ -14,6 +14,8 @@ from continuum_memory.schemas import Memory, MemoryStatus, PackedContext
 from continuum_memory.store_base import create_store
 from continuum_memory.supersession import apply_supersession, extract_slots
 from continuum_memory.explain import explain_pack, explain_memory_inclusion
+from continuum_memory.graph import link_on_remember
+from continuum_memory.consolidate import consolidate_workspace
 
 logger = logging.getLogger("continuum.pack")
 
@@ -40,7 +42,12 @@ class MemoryService:
             memory.slots = extract_slots(memory.content, memory.entities)
         stored = self.store.remember(memory)
         apply_supersession(self.store, [stored])
-        return stored
+        fresh = self.store.get(stored.id) or stored
+        try:
+            link_on_remember(self.store, fresh)
+        except Exception:
+            logger.debug("link_on_remember failed for %s", fresh.id, exc_info=True)
+        return fresh
 
     def ingest_turn(
         self,
@@ -69,6 +76,15 @@ class MemoryService:
             if stored.id == mem.id:
                 written.append(stored)
         apply_supersession(self.store, written)
+        for stored in written:
+            # Refresh so supersedes edges reflect post-supersession state
+            fresh = self.store.get(stored.id) or stored
+            try:
+                link_on_remember(self.store, fresh)
+            except Exception:
+                logger.debug(
+                    "link_on_remember failed for %s", fresh.id, exc_info=True
+                )
         return written
 
     def search(
@@ -192,3 +208,14 @@ class MemoryService:
         if workspace_id is not None and mem.workspace_id != workspace_id:
             return None
         return mem
+
+    def consolidate(self, workspace_id: str, max_groups: int = 20) -> list[Memory]:
+        written = consolidate_workspace(
+            self.store, workspace_id, max_groups=max_groups, client=self.client
+        )
+        for mem in written:
+            try:
+                link_on_remember(self.store, mem)
+            except Exception:
+                logger.debug("link_on_remember failed for %s", mem.id, exc_info=True)
+        return written

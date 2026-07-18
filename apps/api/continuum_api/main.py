@@ -168,6 +168,11 @@ class RememberRequest(BaseModel):
     slots: dict[str, Any] = Field(default_factory=dict)
 
 
+class ConsolidateRequest(BaseModel):
+    workspace_id: str
+    max_groups: int = 20
+
+
 def _idempotency_get(key: str | None) -> Any | None:
     if not key:
         return None
@@ -298,6 +303,15 @@ def pack_preview(
         as_of_dt = datetime.fromisoformat(as_of)
     pack = memory_service.pack(workspace_id, query, budget, algorithm, as_of=as_of_dt)
     return pack.model_dump(mode="json")
+
+
+@app.post("/v1/memories/consolidate")
+def consolidate_memories(req: ConsolidateRequest) -> dict:
+    written = memory_service.consolidate(req.workspace_id, max_groups=req.max_groups)
+    return {
+        "written": [m.model_dump(mode="json") for m in written],
+        "count": len(written),
+    }
 
 
 @app.get("/v1/memories/{memory_id}")

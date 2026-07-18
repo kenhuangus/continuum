@@ -1,0 +1,118 @@
+{
+  "workspace_id": "stress_noise_budget",
+  "org_id": "org_demo",
+  "budget_tokens": 60,
+  "critical_facts": ["15%", "VIP customer", "prefers email"],
+  "stale_facts": ["8%"],
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {
+        "user": "Approved 15% enterprise discount for Globex.",
+        "assistant": "Recorded the 15% Globex decision."
+      },
+      {
+        "user": "Note that Globex is a VIP customer.",
+        "assistant": "Noted VIP customer status."
+      },
+      {
+        "user": "Globex prefers email for all contract communications.",
+        "assistant": "Preference saved."
+      },
+      {
+        "user": "Earlier we had floated an 8% discount for Globex but that is obsolete.",
+        "assistant": "Understood, 8% is outdated."
+      }
+    ]
+  },
+  "session_b": {
+    "session_id": "s-b",
+    "query": "Globex enterprise discount VIP email contact preference"
+  },
+  "seed_memories": [
+    {
+      "id": "noise_01",
+      "type": "episodic",
+      "content": "Globex enterprise discount VIP email contact preference noise: cafeteria newsletter vip lounge weather codes parking stickers holiday party tickets travel hotel rates unrelated to contracts.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.99
+    },
+    {
+      "id": "noise_02",
+      "type": "episodic",
+      "content": "Globex enterprise discount VIP email contact preference distractor about cafeteria lounge parking holiday coffee swag travel printer badge support confusion only.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.99
+    },
+    {
+      "id": "noise_03",
+      "type": "episodic",
+      "content": "More Globex enterprise discount VIP email contact preference chatter covering cafeteria newsletter lounge parking holiday seating drink tickets bookstore coupons.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.98
+    },
+    {
+      "id": "noise_04",
+      "type": "episodic",
+      "content": "Globex VIP email discount contact preference filler: weather codes cafeteria lounge parking holiday party tickets intern bookstore hotel rates marketing drafts.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.98
+    },
+    {
+      "id": "noise_05",
+      "type": "episodic",
+      "content": "Distractor Globex enterprise discount VIP email contact preference including weather cafeteria lounge parking holiday coffee swag travel printer noise.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.97
+    },
+    {
+      "id": "noise_06",
+      "type": "episodic",
+      "content": "Globex email VIP discount preference filler repeating cafeteria newsletter lounge parking holiday tickets hotel rates facilities marketing support rumors.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.97
+    },
+    {
+      "id": "noise_07",
+      "type": "episodic",
+      "content": "Keyword trap Globex enterprise discount VIP email contact preference with weather cafeteria lounge parking holiday coffee swag travel filler.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.96
+    },
+    {
+      "id": "noise_08",
+      "type": "episodic",
+      "content": "Globex VIP email discount contact preference noise about cafeteria lounge parking holiday seating tickets coffee punch cards travel hotel rates.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.96
+    },
+    {
+      "id": "noise_09",
+      "type": "episodic",
+      "content": "Globex discount VIP email enterprise contact preference distractor: weather cafeteria lounge parking holiday tickets bookstore hotel facilities drafts.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.95
+    },
+    {
+      "id": "noise_10",
+      "type": "episodic",
+      "content": "Noise Globex enterprise discount VIP email contact preference discussion of cafeteria lounge parking holiday coffee swag travel printer confusion.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.95
+    },
+    {
+      "id": "noise_11",
+      "type": "episodic",
+      "content": "Still noise Globex VIP email discount preference covering weather cafeteria lounge parking holiday party tickets bookstore hotel marketing rumors.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.94
+    },
+    {
+      "id": "noise_12",
+      "type": "episodic",
+      "content": "Final Globex enterprise discount VIP email contact preference distractor with cafeteria lounge parking holiday coffee swag travel signature filler.",
+      "entities": ["Globex", "discount", "VIP", "email"],
+      "utility": 0.94
+    }
+  ]
+}

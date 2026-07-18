@@ -31,6 +31,7 @@ class Memory(BaseModel):
     entities: list[str] = Field(default_factory=list)
     confidence: float = 1.0
     utility: float = 1.0
+    importance: float | None = None
     status: MemoryStatus = MemoryStatus.ACTIVE
     effective_from: datetime | None = None
     effective_to: datetime | None = None

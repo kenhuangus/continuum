@@ -1,7 +1,28 @@
 from __future__ import annotations
 
 import math
+import os
+
 from continuum_memory.schemas import Memory, MemoryType, PackedContext
+from continuum_memory.scoring import combined_rir_scores, score_breakdown
+
+_TYPE_BOOST: dict[MemoryType, float] = {
+    MemoryType.DECISION: 1.0,
+    MemoryType.PREFERENCE: 0.8,
+    MemoryType.SEMANTIC: 0.5,
+    MemoryType.PROCEDURAL: 0.3,
+    MemoryType.EPISODIC: 0.1,
+    MemoryType.ARTIFACT_REF: 0.0,
+}
+
+_LEGACY_TYPE_BOOST: dict[MemoryType, float] = {
+    MemoryType.DECISION: 4.0,
+    MemoryType.PREFERENCE: 3.5,
+    MemoryType.SEMANTIC: 2.5,
+    MemoryType.PROCEDURAL: 2.0,
+    MemoryType.EPISODIC: 1.0,
+    MemoryType.ARTIFACT_REF: 0.5,
+}
 
 
 def estimate_tokens(text: str) -> int:
@@ -12,7 +33,11 @@ def memory_tokens(memory: Memory) -> int:
     return estimate_tokens(memory.content) + estimate_tokens(" ".join(memory.entities)) + 8
 
 
-def _score(memory: Memory, query: str) -> float:
+def _rir_disabled() -> bool:
+    return os.environ.get("CONTINUUM_DISABLE_RIR", "").lower() in ("1", "true", "yes")
+
+
+def _legacy_score(memory: Memory, query: str) -> float:
     q = query.lower()
     score = memory.utility * memory.confidence
     haystack = f"{memory.content} {' '.join(memory.entities)}".lower()
@@ -20,24 +45,45 @@ def _score(memory: Memory, query: str) -> float:
         for term in q.split():
             if term in haystack:
                 score += 2.0
-    type_boost = {
-        MemoryType.DECISION: 4.0,
-        MemoryType.PREFERENCE: 3.5,
-        MemoryType.SEMANTIC: 2.5,
-        MemoryType.PROCEDURAL: 2.0,
-        MemoryType.EPISODIC: 1.0,
-        MemoryType.ARTIFACT_REF: 0.5,
-    }
-    score += type_boost.get(memory.type, 1.0)
+    score += _LEGACY_TYPE_BOOST.get(memory.type, 1.0)
     return score
+
+
+def _score(
+    memory: Memory,
+    query: str,
+    rir_scores: dict[str, float] | None = None,
+) -> float:
+    if rir_scores is not None and not _rir_disabled():
+        return rir_scores.get(memory.id, 0.0) + _TYPE_BOOST.get(memory.type, 0.0)
+    return _legacy_score(memory, query)
+
+
+def _rir_map(memories: list[Memory], query: str) -> dict[str, float] | None:
+    if _rir_disabled() or not memories:
+        return None
+    return combined_rir_scores(memories, query)
+
+
+def _explain_include(mem: Memory, query: str, cost: int, score: float, prefix: str) -> str:
+    try:
+        bd = score_breakdown(mem, query)
+        return (
+            f"{prefix} [{mem.id[:8]}] ({mem.type.value}): score={score:.2f}, "
+            f"r={bd['recency']:.2f} i={bd['importance']:.2f} rel={bd['relevance']:.2f}, "
+            f"tokens={cost}"
+        )
+    except Exception:
+        return f"{prefix} [{mem.id[:8]}] ({mem.type.value}): score={score:.1f}, tokens={cost}"
 
 
 def pack_greedy(
     memories: list[Memory],
     query: str,
     budget_tokens: int,
+    rir_scores: dict[str, float] | None = None,
 ) -> PackedContext:
-    ranked = sorted(memories, key=lambda m: _score(m, query), reverse=True)
+    ranked = sorted(memories, key=lambda m: _score(m, query, rir_scores), reverse=True)
     packed: list[Memory] = []
     explanations: list[str] = []
     used = 0
@@ -52,10 +98,8 @@ def pack_greedy(
             continue
         packed.append(mem)
         used += cost
-        explanations.append(
-            f"Included [{mem.id[:8]}] ({mem.type.value}): score={_score(mem, query):.1f}, "
-            f"tokens={cost}"
-        )
+        sc = _score(mem, query, rir_scores)
+        explanations.append(_explain_include(mem, query, cost, sc, "Included"))
 
     return PackedContext(
         memories=packed,
@@ -72,6 +116,7 @@ def pack_type_quota(
     memories: list[Memory],
     query: str,
     budget_tokens: int,
+    rir_scores: dict[str, float] | None = None,
 ) -> PackedContext:
     quotas = [
         (MemoryType.DECISION, 0.35),
@@ -93,7 +138,7 @@ def pack_type_quota(
         type_used = 0
         candidates = sorted(
             [m for m in remaining if m.type == mem_type and m.id not in included_ids],
-            key=lambda m: _score(m, query),
+            key=lambda m: _score(m, query, rir_scores),
             reverse=True,
         )
         for mem in candidates:
@@ -113,7 +158,7 @@ def pack_type_quota(
 
     leftovers = sorted(
         [m for m in remaining if m.id not in included_ids],
-        key=lambda m: _score(m, query),
+        key=lambda m: _score(m, query, rir_scores),
         reverse=True,
     )
     for mem in leftovers:
@@ -141,9 +186,10 @@ def pack_knapsack_dp(
     memories: list[Memory],
     query: str,
     budget_tokens: int,
+    rir_scores: dict[str, float] | None = None,
 ) -> PackedContext:
     """0/1 knapsack DP on token costs with score as value. Caps items for runtime."""
-    items = sorted(memories, key=lambda m: _score(m, query), reverse=True)[:40]
+    items = sorted(memories, key=lambda m: _score(m, query, rir_scores), reverse=True)[:40]
     n = len(items)
     if n == 0 or budget_tokens <= 0:
         return PackedContext(
@@ -157,8 +203,7 @@ def pack_knapsack_dp(
         )
 
     costs = [memory_tokens(m) for m in items]
-    values = [_score(m, query) for m in items]
-    # DP: dp[t] = best (value, bitmask-as-set via prev pointers)
+    values = [_score(m, query, rir_scores) for m in items]
     dp = [-math.inf] * (budget_tokens + 1)
     dp[0] = 0.0
     choose: list[dict[int, int]] = [{} for _ in range(n)]
@@ -211,6 +256,7 @@ def pack_mmr(
     query: str,
     budget_tokens: int,
     lambda_mult: float = 0.7,
+    rir_scores: dict[str, float] | None = None,
 ) -> PackedContext:
     """Maximal Marginal Relevance packing under token budget."""
     remaining = list(memories)
@@ -225,7 +271,7 @@ def pack_mmr(
             cost = memory_tokens(mem)
             if used + cost > budget_tokens:
                 continue
-            rel = _score(mem, query)
+            rel = _score(mem, query, rir_scores)
             div = max((_token_overlap(mem, p) for p in packed), default=0.0)
             mmr = lambda_mult * rel - (1 - lambda_mult) * div * 5.0
             if mmr > best_score:
@@ -258,15 +304,16 @@ def pack_context(
     budget_tokens: int,
     algorithm: str = "type_quota",
 ) -> PackedContext:
+    rir_scores = _rir_map(memories, query)
     algo = (algorithm or "type_quota").lower()
     if algo == "greedy":
-        result = pack_greedy(memories, query, budget_tokens)
+        result = pack_greedy(memories, query, budget_tokens, rir_scores)
     elif algo in ("knapsack", "knapsack_dp"):
-        result = pack_knapsack_dp(memories, query, budget_tokens)
+        result = pack_knapsack_dp(memories, query, budget_tokens, rir_scores)
     elif algo == "mmr":
-        result = pack_mmr(memories, query, budget_tokens)
+        result = pack_mmr(memories, query, budget_tokens, rir_scores=rir_scores)
     else:
-        result = pack_type_quota(memories, query, budget_tokens)
+        result = pack_type_quota(memories, query, budget_tokens, rir_scores)
 
     assert result.token_estimate <= budget_tokens, "Packer exceeded budget"
     return result

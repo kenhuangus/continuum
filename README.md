@@ -72,9 +72,25 @@ python evals/run_suite.py
 - `POST /v1/memories/{id}/forget?workspace_id=` — workspace-scoped forget
 - `POST /v1/forgetting/run` — forgetting pass
 
+## Science (what we implement vs cite)
+
+Continuum’s Memory OS is designed against agent-memory literature, with **honest** claims:
+
+| Implemented | Inspired by (not a full paper reproduction) |
+|-------------|-----------------------------------------------|
+| Retrieve-then-pack (sparse ∪ dense ∪ entity → budget pack) | Hybrid RAG + MemGPT-style context as RAM |
+| Recency × importance × relevance re-rank | Park et al., *Generative Agents* (UIST 2023) |
+| Slot supersession + 1-hop memory graph edges | Conflict graphs / HippoRAG *subset* (no PPR) |
+| Episodic→semantic `consolidate` job | Reflection / Storage→Reflection surveys |
+| Eval: recall@budget, stale leakage, stress vs keyword-naive | Offline fixtures (not LoCoMo/LongMemEval parity) |
+
+Research write-ups: [docs/research/AGENT_MEMORY_SURVEY.md](docs/research/AGENT_MEMORY_SURVEY.md), [MEMORY_ARCHITECTURE_V2.md](docs/research/MEMORY_ARCHITECTURE_V2.md), [IMPROVEMENT_PLAN.md](docs/research/IMPROVEMENT_PLAN.md). Assessment: [docs/MEMORY_SAAS_ASSESSMENT.md](docs/MEMORY_SAAS_ASSESSMENT.md).
+
+Any coding agent can use Continuum as shared memory via **MCP** (`python -m continuum_mcp`) or **HTTP** (`/v1/memories`, `/v1/memories/pack_preview`, `/v1/memories/consolidate`) with workspace isolation and optional API keys.
+
 ## Honest scope
 
-Phase A+ upgrade ships hybrid retrieve-then-pack, API keys, AuthZ on forget, real MCP stdio, and an offline eval suite. It is **not** a full multi-tenant cloud SaaS yet (SQLite primary; Postgres interface only). See [docs/MEMORY_SAAS_ASSESSMENT.md](docs/MEMORY_SAAS_ASSESSMENT.md).
+Phase A+ science loops ship hybrid retrieve-then-pack, RIR scoring, graph 1-hop, consolidate, API keys, AuthZ on forget, real MCP stdio, and an offline eval suite that beats a true keyword-naive baseline on aggregate recall. It is **not** a full multi-tenant cloud SaaS yet (SQLite primary; Postgres interface only), and we do **not** claim HippoRAG PageRank, MemGPT sleep-time compute, or Mem0 paper numbers.
 
 ## Deploy (Alibaba Cloud)
 

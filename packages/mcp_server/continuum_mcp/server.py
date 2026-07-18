@@ -92,6 +92,18 @@ TOOL_SCHEMAS = [
             "required": ["workspace_id", "query"],
         },
     },
+    {
+        "name": "memory_consolidate",
+        "description": "Consolidate episodic memories into distilled semantic memories",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "workspace_id": {"type": "string"},
+                "max_groups": {"type": "integer"},
+            },
+            "required": ["workspace_id"],
+        },
+    },
 ]
 
 
@@ -147,6 +159,15 @@ def _call_tool(name: str, arguments: dict[str, Any]) -> Any:
             arguments.get("algorithm", "type_quota"),
         )
         return pack.model_dump(mode="json")
+    if name == "memory_consolidate":
+        written = svc.consolidate(
+            arguments["workspace_id"],
+            max_groups=int(arguments.get("max_groups", 20)),
+        )
+        return {
+            "written": [m.model_dump(mode="json") for m in written],
+            "count": len(written),
+        }
     raise ValueError(f"Unknown tool: {name}")
 
 
@@ -229,6 +250,15 @@ def _try_sdk_main() -> bool:
                     "budget": budget,
                     "algorithm": algorithm,
                 },
+            )
+        )
+
+    @mcp.tool()
+    def memory_consolidate(workspace_id: str, max_groups: int = 20) -> str:
+        return json.dumps(
+            _call_tool(
+                "memory_consolidate",
+                {"workspace_id": workspace_id, "max_groups": max_groups},
             )
         )
 
