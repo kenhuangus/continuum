@@ -3,98 +3,220 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Continuum — MemoryAgent Demo</title>
+  <title>Continuum — Memory Operating System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #eef2f0;
-      --surface: #f7faf8;
-      --border: #c5d0c9;
-      --text: #1a2b24;
-      --muted: #5a6e66;
-      --accent: #1f6b56;
-      --accent-dim: #d4ebe3;
+      --bg0: #e6ece8;
+      --bg1: #f3f7f4;
+      --surface: #fafcfb;
+      --border: #b8c7bf;
+      --text: #14241d;
+      --muted: #5a6f66;
+      --accent: #0f6b52;
+      --accent-2: #1a8a6a;
+      --accent-dim: #d7efe6;
+      --warn: #9a5b1a;
+      --danger: #8b3a3a;
+      --forgotten: #7a8580;
+      --shadow: 0 10px 40px rgba(20, 36, 29, 0.06);
+      --nav-h: 64px;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
     body {
       font-family: "IBM Plex Sans", system-ui, sans-serif;
-      background:
-        radial-gradient(ellipse at 12% -10%, rgba(31, 107, 86, 0.12) 0%, transparent 45%),
-        linear-gradient(165deg, #e8efe9 0%, #eef2f0 40%, #e4ebe8 100%);
       color: var(--text);
-      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 80% 50% at 8% -10%, rgba(15, 107, 82, 0.14), transparent 50%),
+        radial-gradient(ellipse 60% 40% at 92% 0%, rgba(26, 138, 106, 0.08), transparent 45%),
+        linear-gradient(168deg, #dfe8e3 0%, var(--bg0) 38%, #e9efeb 100%);
       line-height: 1.5;
+      overflow: hidden;
     }
-    header {
-      padding: 1.25rem 2rem;
-      border-bottom: 1px solid var(--border);
+    button, input, select { font: inherit; }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+      padding: 0.4rem 0.85rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      transition: background 0.2s var(--ease), transform 0.15s var(--ease);
+    }
+    button:hover { background: #0c5743; }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    button.ghost {
+      background: transparent;
+      color: var(--text);
+      border-color: var(--border);
+    }
+    button.ghost:hover { background: var(--accent-dim); border-color: var(--accent); }
+    input[type="text"], input[type="password"], input[type="datetime-local"], select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.4rem 0.55rem;
+      border-radius: 6px;
+    }
+    input[type="range"] { accent-color: var(--accent); }
+
+    /* —— Shell —— */
+    .app-shell { display: flex; flex-direction: column; height: 100vh; }
+    .topbar {
+      height: var(--nav-h);
+      flex-shrink: 0;
       display: flex;
-      align-items: baseline;
-      gap: 1rem;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(250, 252, 251, 0.82);
+      backdrop-filter: blur(10px);
+      z-index: 20;
     }
-    header h1 {
-      font-family: "Fraunces", Georgia, serif;
-      font-weight: 600;
-      font-size: 1.5rem;
-      letter-spacing: -0.02em;
-      color: var(--accent);
-    }
-    header span { color: var(--muted); font-size: 0.875rem; }
-    .layout {
-      display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 0;
-      height: calc(100vh - 65px);
-    }
-    .panel {
-      border-right: 1px solid var(--border);
+    .brand {
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      gap: 0.05rem;
+      min-width: 9rem;
+      animation: brandIn 0.7s var(--ease) both;
+    }
+    .brand h1 {
+      font-family: "Fraunces", Georgia, serif;
+      font-weight: 700;
+      font-size: 1.55rem;
+      letter-spacing: -0.03em;
+      color: var(--accent);
+      line-height: 1.1;
+    }
+    .brand .tag {
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+    }
+    @keyframes brandIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: none; }
+    }
+    .nav {
+      display: flex;
+      gap: 0.25rem;
+      flex: 1;
+    }
+    .nav-btn {
+      position: relative;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: 0.55rem 0.9rem;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+    .nav-btn:hover { background: rgba(15, 107, 82, 0.08); color: var(--text); }
+    .nav-btn.active { color: var(--accent); background: var(--accent-dim); }
+    .nav-btn.active::after {
+      content: "";
+      position: absolute;
+      left: 18%;
+      right: 18%;
+      bottom: 4px;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 2px;
+      animation: underlineIn 0.35s var(--ease);
+    }
+    @keyframes underlineIn {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+    .top-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .top-meta label { white-space: nowrap; }
+    .top-meta input { width: 88px; font-size: 0.75rem; padding: 0.25rem 0.4rem; }
+    .top-meta input#workspaceId { width: 100px; }
+    .top-meta input#apiKey { width: 92px; }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+    }
+    .status-pill .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--warn);
+    }
+    .status-pill.ok .dot { background: var(--accent-2); }
+
+    .workspace {
+      flex: 1;
+      min-height: 0;
+      position: relative;
+    }
+    .view {
+      display: none;
+      height: 100%;
+      animation: viewFade 0.4s var(--ease);
+    }
+    .view.active { display: grid; }
+    @keyframes viewFade {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    /* —— Chat view —— */
+    #view-chat {
+      grid-template-columns: 1fr minmax(320px, 380px);
+    }
+    .panel {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: rgba(250, 252, 251, 0.55);
+      border-right: 1px solid var(--border);
     }
     .panel:last-child { border-right: none; }
     .panel-header {
-      padding: 0.75rem 1rem;
+      padding: 0.7rem 1rem;
       border-bottom: 1px solid var(--border);
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--muted);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 0.5rem;
     }
     .controls {
-      padding: 0.75rem 1rem;
+      padding: 0.65rem 1rem;
       border-bottom: 1px solid var(--border);
       display: flex;
       flex-wrap: wrap;
-      gap: 0.5rem;
+      gap: 0.45rem;
       align-items: center;
-      font-size: 0.875rem;
-    }
-    label { color: var(--muted); }
-    input[type="text"], input[type="number"] {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 0.35rem 0.5rem;
-      border-radius: 4px;
-      font: inherit;
-    }
-    input[type="range"] { width: 100px; accent-color: var(--accent); }
-    button {
-      background: var(--accent);
-      color: #fff;
-      border: 1px solid var(--accent);
-      padding: 0.4rem 0.75rem;
-      border-radius: 4px;
-      cursor: pointer;
-      font: inherit;
       font-size: 0.8125rem;
+      background: rgba(255,255,255,0.35);
     }
-    button:hover { background: #185544; }
+    .controls label { color: var(--muted); font-size: 0.75rem; }
     .chat-log {
       flex: 1;
       overflow-y: auto;
@@ -104,131 +226,443 @@
       gap: 0.75rem;
     }
     .msg {
-      max-width: 90%;
-      padding: 0.65rem 0.85rem;
-      border-radius: 8px;
+      max-width: 92%;
+      padding: 0.7rem 0.9rem;
+      border-radius: 10px;
       font-size: 0.9375rem;
+      box-shadow: var(--shadow);
     }
     .msg.user {
       align-self: flex-end;
       background: var(--accent-dim);
-      border: 1px solid var(--accent);
+      border: 1px solid rgba(15, 107, 82, 0.35);
     }
     .msg.assistant {
       align-self: flex-start;
       background: var(--surface);
       border: 1px solid var(--border);
     }
+    .msg.system {
+      align-self: center;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      color: var(--muted);
+      font-size: 0.8rem;
+      padding: 0.25rem;
+    }
     .msg .cite {
       display: block;
-      margin-top: 0.4rem;
+      margin-top: 0.45rem;
       color: var(--accent);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
+      font-family: "IBM Plex Mono", monospace;
     }
     .chat-input {
       padding: 0.75rem 1rem;
       border-top: 1px solid var(--border);
       display: flex;
       gap: 0.5rem;
+      background: rgba(250, 252, 251, 0.9);
     }
     .chat-input input { flex: 1; }
-    .tabs { display: flex; gap: 0.25rem; }
+
+    .tabs { display: flex; gap: 0.2rem; }
     .tab {
-      padding: 0.25rem 0.5rem;
+      padding: 0.25rem 0.55rem;
       background: transparent;
       border: 1px solid transparent;
       color: var(--muted);
+      border-radius: 5px;
+      font-size: 0.75rem;
     }
     .tab.active {
       border-color: var(--border);
-      background: var(--bg);
+      background: var(--bg1);
       color: var(--text);
     }
-    .memory-list, .pack-list {
+    .memory-list, .pack-list, .graph-canvas, .lab-body, .admin-body {
       flex: 1;
       overflow-y: auto;
-      padding: 0.5rem;
+      padding: 0.6rem;
+      min-height: 0;
     }
     .memory-card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 8px;
       padding: 0.6rem 0.75rem;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.45rem;
       font-size: 0.8125rem;
+      cursor: pointer;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
+    .memory-card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+    .memory-card.selected { border-color: var(--accent); background: var(--accent-dim); }
     .memory-card .meta {
       color: var(--muted);
-      font-size: 0.7rem;
-      margin-bottom: 0.25rem;
+      font-size: 0.68rem;
+      margin-bottom: 0.2rem;
+      font-family: "IBM Plex Mono", monospace;
     }
-    .memory-card.superseded { opacity: 0.6; border-style: dashed; }
-    .memory-card.forgotten { opacity: 0.4; }
+    .memory-card.superseded { opacity: 0.65; border-style: dashed; }
+    .memory-card.forgotten { opacity: 0.45; color: var(--forgotten); }
+    .badge {
+      display: inline-block;
+      padding: 0.05rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      background: var(--accent-dim);
+      color: var(--accent);
+      margin-right: 0.25rem;
+    }
+    .badge.pii { background: #f3e4d4; color: var(--warn); }
     .pack-meta {
-      padding: 0.5rem 1rem;
-      font-size: 0.8125rem;
+      padding: 0.55rem 0.85rem;
+      font-size: 0.78rem;
       color: var(--muted);
       border-bottom: 1px solid var(--border);
     }
+    .token-meter {
+      height: 8px;
+      background: #d5e0da;
+      border-radius: 99px;
+      overflow: hidden;
+      margin: 0.45rem 0.85rem 0.2rem;
+    }
+    .token-meter > span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: 99px;
+      transition: width 0.55s var(--ease);
+    }
     .sidebar-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
     .sidebar-section + .sidebar-section { border-top: 1px solid var(--border); }
+
+    /* —— Memory / Graph view —— */
+    #view-memory {
+      grid-template-columns: 280px 1fr 300px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      padding: 0.75rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem;
+    }
+    .stat-card .n {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 1.6rem;
+      color: var(--accent);
+      line-height: 1.1;
+    }
+    .stat-card .l { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .graph-stage {
+      position: relative;
+      background:
+        radial-gradient(circle at 50% 40%, rgba(15,107,82,0.06), transparent 55%),
+        var(--bg1);
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+    }
+    #graphSvg { width: 100%; height: 100%; display: block; }
+    .graph-node circle {
+      fill: var(--surface);
+      stroke: var(--accent);
+      stroke-width: 2;
+      cursor: pointer;
+      transition: r 0.2s;
+    }
+    .graph-node.superseded circle { stroke-dasharray: 4 3; stroke: var(--warn); }
+    .graph-node.forgotten circle { stroke: var(--forgotten); opacity: 0.5; }
+    .graph-node text {
+      font-size: 10px;
+      fill: var(--text);
+      pointer-events: none;
+      font-family: "IBM Plex Sans", sans-serif;
+    }
+    .graph-edge { stroke: #9bb0a6; stroke-width: 1.4; fill: none; opacity: 0.7; }
+    .graph-edge.supersedes { stroke: var(--warn); stroke-dasharray: 5 4; }
+
+    /* —— Packer Lab —— */
+    #view-packer {
+      grid-template-columns: 340px 1fr;
+    }
+    .lab-form {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .lab-form label { font-size: 0.75rem; color: var(--muted); display: block; margin-bottom: 0.25rem; }
+    .lab-form .row { display: flex; gap: 0.5rem; align-items: center; }
+    .explain-box {
+      margin: 0.5rem;
+      padding: 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      font-family: "IBM Plex Mono", monospace;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding: 0.35rem 0;
+      border-bottom: 1px solid #e2ebe6;
+      font-size: 0.8rem;
+    }
+
+    /* —— Admin —— */
+    #view-admin {
+      grid-template-columns: 1fr 1fr;
+    }
+    .admin-card {
+      margin: 0.75rem;
+      padding: 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+    .admin-card h3 {
+      font-family: "Fraunces", Georgia, serif;
+      font-size: 1.1rem;
+      margin-bottom: 0.35rem;
+      color: var(--accent);
+    }
+    .admin-card p { color: var(--muted); font-size: 0.85rem; margin-bottom: 0.75rem; }
+    .admin-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .log-box {
+      margin-top: 0.75rem;
+      max-height: 180px;
+      overflow: auto;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      background: var(--bg1);
+      border-radius: 6px;
+      padding: 0.5rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 960px) {
+      #view-chat, #view-memory, #view-packer, #view-admin {
+        grid-template-columns: 1fr;
+      }
+      .top-meta input#apiKey { display: none; }
+      body { overflow: auto; }
+      .app-shell { height: auto; min-height: 100vh; }
+      .workspace { min-height: 70vh; }
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Continuum</h1>
-    <span>MemoryAgent — Session A → B recall under budget</span>
-  </header>
-  <div class="layout">
-    <section class="panel">
-      <div class="controls">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <h1>Continuum</h1>
+        <span class="tag">Memory operating system</span>
+      </div>
+      <nav class="nav" role="tablist" aria-label="Product views">
+        <button type="button" class="nav-btn active" data-view="chat" id="nav-chat">Chat</button>
+        <button type="button" class="nav-btn" data-view="memory" id="nav-memory">Memory Graph</button>
+        <button type="button" class="nav-btn" data-view="packer" id="nav-packer">Packer Lab</button>
+        <button type="button" class="nav-btn" data-view="admin" id="nav-admin">Policies</button>
+      </nav>
+      <div class="top-meta">
+        <span class="status-pill" id="healthPill"><span class="dot"></span><span id="healthText">…</span></span>
         <label>Workspace</label>
         <input type="text" id="workspaceId" value="acme" />
         <label>Session</label>
-        <input type="text" id="sessionId" value="session-a" readonly style="width:120px" />
+        <input type="text" id="sessionId" value="session-a" readonly style="width:110px" />
+        <label>Org</label>
+        <input type="text" id="orgId" value="org_demo" title="Used when auth is disabled" />
         <label>API Key</label>
-        <input type="password" id="apiKey" placeholder="optional" style="width:110px" autocomplete="off" />
-        <label>Budget</label>
-        <input type="range" id="budget" min="200" max="3000" value="800" />
-        <span id="budgetVal">800</span>
-        <button id="newSession">New Session</button>
-        <button id="forgetPass">Run Forgetting Pass</button>
+        <input type="password" id="apiKey" placeholder="optional" autocomplete="off" />
       </div>
-      <div class="chat-log" id="chatLog"></div>
-      <div class="chat-input">
-        <input type="text" id="messageInput" placeholder="Ask about Acme discount, VIP status, contact preference…" />
-        <button id="sendBtn">Send</button>
-      </div>
-    </section>
-    <aside class="panel">
-      <div class="sidebar-section" style="flex:1.2">
-        <div class="panel-header">
-          Memory Inspector
-          <div class="tabs">
-            <button class="tab active" data-status="active">Active</button>
-            <button class="tab" data-status="superseded">Superseded</button>
-            <button class="tab" data-status="forgotten">Forgotten</button>
+    </header>
+
+    <div class="workspace">
+      <!-- CHAT -->
+      <section class="view active" id="view-chat" data-view-panel="chat">
+        <div class="panel">
+          <div class="controls">
+            <label>Budget</label>
+            <input type="range" id="budget" min="200" max="3000" value="800" />
+            <span id="budgetVal">800</span>
+            <label>Packer</label>
+            <select id="packerAlgo">
+              <option value="type_quota">type_quota</option>
+              <option value="greedy">greedy</option>
+              <option value="mmr">mmr</option>
+            </select>
+            <button type="button" id="newSession">New Session</button>
+            <button type="button" class="ghost" id="forgetPass">Run Forgetting Pass</button>
+          </div>
+          <div class="chat-log" id="chatLog"></div>
+          <div class="chat-input">
+            <input type="text" id="messageInput" placeholder="Ask Continuum — VIP status, discounts, preferences…" />
+            <button type="button" id="sendBtn">Send</button>
           </div>
         </div>
-        <div class="memory-list" id="memoryList"></div>
-      </div>
-      <div class="sidebar-section">
-        <div class="panel-header">Context Packer</div>
-        <div class="pack-meta" id="packMeta">No pack yet</div>
-        <div class="pack-list" id="packList"></div>
-      </div>
-    </aside>
+        <aside class="panel">
+          <div class="sidebar-section" style="flex:1.25">
+            <div class="panel-header">
+              Memory Inspector
+              <div class="tabs" id="statusTabs">
+                <button type="button" class="tab active" data-status="active">Active</button>
+                <button type="button" class="tab" data-status="superseded">Superseded</button>
+                <button type="button" class="tab" data-status="forgotten">Forgotten</button>
+              </div>
+            </div>
+            <div class="memory-list" id="memoryList"></div>
+          </div>
+          <div class="sidebar-section">
+            <div class="panel-header">Context Packer</div>
+            <div class="token-meter" title="Token budget usage"><span id="tokenFill"></span></div>
+            <div class="pack-meta" id="packMeta">No pack yet — send a message to pack under budget</div>
+            <div class="pack-list" id="packList"></div>
+          </div>
+        </aside>
+      </section>
+
+      <!-- MEMORY GRAPH -->
+      <section class="view" id="view-memory" data-view-panel="memory">
+        <div class="panel">
+          <div class="panel-header">
+            Workspace Stats
+            <button type="button" class="ghost" id="refreshStats" style="padding:0.2rem 0.5rem;font-size:0.7rem">Refresh</button>
+          </div>
+          <div class="stats-grid" id="statsGrid"></div>
+          <div class="panel-header">
+            Memories
+            <div class="tabs" id="graphStatusTabs">
+              <button type="button" class="tab active" data-status="active">Active</button>
+              <button type="button" class="tab" data-status="superseded">Superseded</button>
+              <button type="button" class="tab" data-status="forgotten">Forgotten</button>
+            </div>
+          </div>
+          <div class="memory-list" id="graphMemoryList"></div>
+        </div>
+        <div class="panel graph-stage">
+          <div class="panel-header">Entity &amp; supersession graph · hybrid BM25 + ANN + links</div>
+          <svg id="graphSvg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <div class="panel">
+          <div class="panel-header">Memory detail / Explain</div>
+          <div class="lab-body" id="memoryDetail">
+            <p style="color:var(--muted);font-size:0.85rem;padding:0.5rem">Select a memory to inspect slots, policy tags, and pack inclusion explain.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- PACKER LAB -->
+      <section class="view" id="view-packer" data-view-panel="packer">
+        <div class="panel">
+          <div class="panel-header">Pack preview controls</div>
+          <div class="lab-form">
+            <div>
+              <label for="packQuery">Query</label>
+              <input type="text" id="packQuery" style="width:100%" placeholder="What discount does Acme get?" />
+            </div>
+            <div class="row">
+              <div style="flex:1">
+                <label for="labBudget">Budget tokens</label>
+                <input type="range" id="labBudget" min="200" max="3000" value="800" style="width:100%" />
+                <span id="labBudgetVal">800</span>
+              </div>
+            </div>
+            <div>
+              <label for="labAlgo">Algorithm</label>
+              <select id="labAlgo" style="width:100%">
+                <option value="type_quota">type_quota — typed quotas</option>
+                <option value="greedy">greedy — score until full</option>
+                <option value="mmr">mmr — diversity-aware</option>
+              </select>
+            </div>
+            <div>
+              <label for="asOf">As-of (point-in-time)</label>
+              <input type="datetime-local" id="asOf" style="width:100%" />
+            </div>
+            <div class="row">
+              <button type="button" id="runPack">Run pack_preview</button>
+              <button type="button" class="ghost" id="runExplain">Explain selected</button>
+            </div>
+          </div>
+          <div class="token-meter"><span id="labTokenFill"></span></div>
+          <div class="pack-meta" id="labPackMeta">Set a query and run pack preview</div>
+        </div>
+        <div class="panel">
+          <div class="panel-header">Packed memories · candidate explanations</div>
+          <div class="pack-list" id="labPackList"></div>
+          <div class="explain-box" id="labExplain" hidden></div>
+        </div>
+      </section>
+
+      <!-- ADMIN / POLICIES -->
+      <section class="view" id="view-admin" data-view-panel="admin">
+        <div class="panel">
+          <div class="admin-card">
+            <h3>Forgetting &amp; supersession</h3>
+            <p>Stale or contradicted facts retire on purpose. Active → superseded → forgotten stays inspectable.</p>
+            <div class="admin-actions">
+              <button type="button" id="adminForget">Run forgetting pass</button>
+              <button type="button" class="ghost" id="adminConsolidate">Consolidate workspace</button>
+            </div>
+            <div class="log-box" id="adminLog">Ready.</div>
+          </div>
+          <div class="admin-card">
+            <h3>Policy tags (heuristic)</h3>
+            <p>PII / short-retention tags attach on write. Pack can exclude PII when <code>CONTINUUM_PACK_EXCLUDE_PII=1</code>.</p>
+            <div id="policySummary" class="log-box">Load memories to see tagged items.</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="admin-card">
+            <h3>Org &amp; RBAC lite</h3>
+            <p>When API keys are configured, roles are reader / writer / admin. Local demo mode disables auth automatically.</p>
+            <div class="admin-actions">
+              <button type="button" class="ghost" id="pingHealth">Check /v1/health</button>
+              <button type="button" class="ghost" id="loadPolicyMemories">Scan policy tags</button>
+            </div>
+            <div class="log-box" id="rbacLog">Org field binds when auth is off; with keys, org comes from the key map.</div>
+          </div>
+          <div class="admin-card">
+            <h3>Hybrid retrieve</h3>
+            <p>Every pack uses BM25 + ANN candidates, optional graph expansion, then budget packing — not whole-workspace paste.</p>
+            <div class="log-box" id="retrieveHint">Open Packer Lab and run a preview to see candidate_count vs packed count.</div>
+          </div>
+        </div>
+      </section>
+    </div>
   </div>
+
   <script>
     const API = window.location.origin;
     let memoryFilter = "active";
+    let graphFilter = "active";
     let sending = false;
+    let selectedMemoryId = null;
+    let currentView = "chat";
 
     const $ = (id) => document.getElementById(id);
 
-    function sessionId() { return $("sessionId").value; }
     function workspaceId() { return $("workspaceId").value.trim() || "acme"; }
+    function sessionId() { return $("sessionId").value; }
+    function orgId() { return ($("orgId").value || "").trim() || null; }
     function budget() { return parseInt($("budget").value, 10); }
+    function packer() { return $("packerAlgo").value; }
+
     function apiHeaders(extra) {
       const headers = Object.assign({}, extra || {});
       const key = ($("apiKey").value || "").trim();
@@ -236,82 +670,125 @@
       return headers;
     }
 
-    function clearPackPanel() {
-      $("packMeta").textContent = "No pack yet";
-      $("packList").replaceChildren();
+    function qs(params) {
+      const p = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== "") p.set(k, v);
+      });
+      return p.toString();
     }
 
-    function renderMemoryCard(m, withStatus) {
+    async function api(path, opts) {
+      const res = await fetch(`${API}${path}`, opts);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = data.detail || res.statusText || "request failed";
+        throw new Error(`${res.status} ${typeof detail === "string" ? detail : JSON.stringify(detail)}`);
+      }
+      return data;
+    }
+
+    /* —— Navigation —— */
+    function showView(name) {
+      currentView = name;
+      document.querySelectorAll(".nav-btn").forEach((b) => {
+        b.classList.toggle("active", b.dataset.view === name);
+      });
+      document.querySelectorAll(".view").forEach((v) => {
+        v.classList.toggle("active", v.dataset.viewPanel === name);
+      });
+      if (name === "memory") {
+        refreshStats();
+        refreshGraphMemories();
+        refreshGraph();
+      }
+      if (name === "admin") scanPolicyTags();
+    }
+
+    document.querySelectorAll(".nav-btn").forEach((btn) => {
+      btn.addEventListener("click", () => showView(btn.dataset.view));
+    });
+
+    /* —— Chat —— */
+    function clearPackPanel() {
+      $("packMeta").textContent = "No pack yet — send a message to pack under budget";
+      $("packList").replaceChildren();
+      $("tokenFill").style.width = "0%";
+    }
+
+    function renderMemoryCard(m, withStatus, onClick) {
       const card = document.createElement("div");
       card.className = "memory-card " + (m.status || "");
+      if (selectedMemoryId && m.id === selectedMemoryId) card.classList.add("selected");
+      card.dataset.id = m.id;
       const meta = document.createElement("div");
       meta.className = "meta";
-      const bits = [m.type, m.id.slice(0, 8)];
+      const bits = [m.type, (m.id || "").slice(0, 8)];
       if (withStatus) bits.push(m.status);
       meta.textContent = bits.join(" · ");
       const body = document.createElement("div");
       body.textContent = m.content;
       card.appendChild(meta);
+      if (m.policy_tags && m.policy_tags.length) {
+        const tags = document.createElement("div");
+        m.policy_tags.forEach((t) => {
+          const b = document.createElement("span");
+          b.className = "badge" + (t === "pii" ? " pii" : "");
+          b.textContent = t;
+          tags.appendChild(b);
+        });
+        card.appendChild(tags);
+      }
       card.appendChild(body);
+      if (onClick) card.addEventListener("click", () => onClick(m));
       return card;
     }
 
-    $("budget").addEventListener("input", () => {
-      $("budgetVal").textContent = $("budget").value;
-    });
+    $("budget").addEventListener("input", () => { $("budgetVal").textContent = $("budget").value; });
+    $("labBudget").addEventListener("input", () => { $("labBudgetVal").textContent = $("labBudget").value; });
 
-    $("workspaceId").addEventListener("change", () => {
-      refreshMemories();
-      clearPackPanel();
-    });
-    $("workspaceId").addEventListener("blur", () => {
-      refreshMemories();
-      clearPackPanel();
+    ["workspaceId", "orgId"].forEach((id) => {
+      $(id).addEventListener("change", () => {
+        refreshMemories();
+        clearPackPanel();
+        if (currentView === "memory") {
+          refreshStats();
+          refreshGraphMemories();
+          refreshGraph();
+        }
+      });
     });
 
     $("newSession").addEventListener("click", () => {
       $("sessionId").value = "session-" + Date.now().toString(36);
-      appendMsg("system", "Started new session: " + $("sessionId").value);
+      $("chatLog").replaceChildren();
+      appendMsg("system", "Started new session: " + $("sessionId").value + " — workspace memories persist");
       refreshMemories();
     });
 
-    $("forgetPass").addEventListener("click", async () => {
-      try {
-        const res = await fetch(`${API}/v1/forgetting/run?workspace_id=${encodeURIComponent(workspaceId())}`, {
-          method: "POST",
-          headers: apiHeaders(),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          appendMsg("system", `Error: ${res.status} ${data.detail || res.statusText}`);
-          return;
-        }
-        appendMsg("system", `Forgetting pass: ${data.count ?? 0} events`);
-        refreshMemories();
-      } catch (err) {
-        appendMsg("system", `Error: ${err.message || err}`);
-      }
-    });
+    $("forgetPass").addEventListener("click", () => runForgetting("chat"));
 
-    document.querySelectorAll(".tab").forEach((tab) => {
+    document.querySelectorAll("#statusTabs .tab").forEach((tab) => {
       tab.addEventListener("click", () => {
-        document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+        document.querySelectorAll("#statusTabs .tab").forEach((t) => t.classList.remove("active"));
         tab.classList.add("active");
         memoryFilter = tab.dataset.status;
         refreshMemories();
       });
     });
 
+    document.querySelectorAll("#graphStatusTabs .tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll("#graphStatusTabs .tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        graphFilter = tab.dataset.status;
+        refreshGraphMemories();
+      });
+    });
+
     function appendMsg(role, text) {
       const div = document.createElement("div");
-      div.className = "msg " + (role === "user" ? "user" : "assistant");
-      if (role === "system") {
-        div.style.alignSelf = "center";
-        div.style.fontSize = "0.8rem";
-        div.style.color = "var(--muted)";
-        div.style.background = "transparent";
-        div.style.border = "none";
-      }
+      div.className = "msg " + (role === "user" ? "user" : role === "system" ? "system" : "assistant");
       div.textContent = text;
       $("chatLog").appendChild(div);
       $("chatLog").scrollTop = $("chatLog").scrollHeight;
@@ -327,7 +804,7 @@
       if (citations && citations.length) {
         const cite = document.createElement("span");
         cite.className = "cite";
-        cite.textContent = "Citations: " + citations.map((id) => "[" + id.slice(0, 8) + "]").join(" ");
+        cite.textContent = "Citations: " + citations.map((id) => "[" + String(id).slice(0, 8) + "]").join(" ");
         div.appendChild(cite);
       }
       $("chatLog").appendChild(div);
@@ -336,48 +813,49 @@
 
     async function refreshMemories() {
       try {
-        const res = await fetch(
-          `${API}/v1/memories?workspace_id=${encodeURIComponent(workspaceId())}&status=${encodeURIComponent(memoryFilter)}`,
-          { headers: apiHeaders() }
-        );
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          appendMsg("system", `Error loading memories: ${res.status} ${data.detail || res.statusText}`);
-          return;
-        }
+        const data = await api(`/v1/memories?` + qs({
+          workspace_id: workspaceId(),
+          status: memoryFilter,
+          org_id: orgId(),
+        }), { headers: apiHeaders() });
         const list = $("memoryList");
         list.replaceChildren();
-        (data.memories || []).forEach((m) => list.appendChild(renderMemoryCard(m, true)));
+        (data.memories || []).forEach((m) =>
+          list.appendChild(renderMemoryCard(m, true, (mem) => {
+            selectedMemoryId = mem.id;
+            refreshMemories();
+          }))
+        );
       } catch (err) {
-        appendMsg("system", `Error loading memories: ${err.message || err}`);
+        appendMsg("system", `Error loading memories: ${err.message}`);
       }
     }
 
     async function refreshPack(query) {
       try {
-        const res = await fetch(
-          `${API}/v1/memories/pack_preview?workspace_id=${encodeURIComponent(workspaceId())}&query=${encodeURIComponent(query)}&budget=${budget()}&algorithm=type_quota`,
-          { headers: apiHeaders() }
-        );
-        const pack = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          appendMsg("system", `Error loading pack: ${res.status} ${pack.detail || res.statusText}`);
-          return;
-        }
-        let meta = `Algorithm: ${pack.algorithm} · Tokens: ${pack.token_estimate}/${pack.budget_tokens}`;
+        const pack = await api(`/v1/memories/pack_preview?` + qs({
+          workspace_id: workspaceId(),
+          query,
+          budget: budget(),
+          algorithm: packer(),
+          org_id: orgId(),
+        }), { headers: apiHeaders() });
+        const used = pack.token_estimate || 0;
+        const bud = pack.budget_tokens || budget();
+        const pct = bud ? Math.min(100, Math.round((used / bud) * 100)) : 0;
+        $("tokenFill").style.width = pct + "%";
+        let meta = `Algorithm: ${pack.algorithm} · Tokens: ${used}/${bud} · Candidates: ${pack.candidate_count ?? "—"}`;
         if (pack.explanations && pack.explanations.length) {
-          const preview = pack.explanations.slice(0, 2).join(" · ");
-          meta += ` · ${preview}`;
-          if (pack.explanations.length > 2) {
-            meta += ` (+${pack.explanations.length - 2} more)`;
-          }
+          meta += ` · ${pack.explanations.slice(0, 2).join(" · ")}`;
         }
         $("packMeta").textContent = meta;
         const list = $("packList");
         list.replaceChildren();
         (pack.memories || []).forEach((m) => list.appendChild(renderMemoryCard(m, false)));
+        $("retrieveHint").textContent =
+          `Last pack: ${pack.candidate_count ?? "?"} candidates → ${((pack.memories || []).length)} packed under ${bud} tokens (${pack.algorithm}).`;
       } catch (err) {
-        appendMsg("system", `Error loading pack: ${err.message || err}`);
+        appendMsg("system", `Error loading pack: ${err.message}`);
       }
     }
 
@@ -389,37 +867,36 @@
       $("sendBtn").disabled = true;
       $("messageInput").value = "";
       appendMsg("user", msg);
-
       try {
-        const res = await fetch(`${API}/v1/chat`, {
+        const body = {
+          workspace_id: workspaceId(),
+          session_id: sessionId(),
+          message: msg,
+          memory_token_budget: budget(),
+          packer: packer(),
+        };
+        if (orgId()) body.org_id = orgId();
+        const data = await api("/v1/chat", {
           method: "POST",
           headers: apiHeaders({ "Content-Type": "application/json" }),
-          body: JSON.stringify({
-            workspace_id: workspaceId(),
-            session_id: sessionId(),
-            message: msg,
-            memory_token_budget: budget(),
-            packer: "type_quota",
-          }),
+          body: JSON.stringify(body),
         });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          appendMsg("assistant", `Error: ${res.status} ${data.detail || res.statusText || "request failed"}`);
-          return;
-        }
         if (!data.reply) {
-          appendMsg("assistant", `Error: empty reply from API`);
+          appendMsg("assistant", "Error: empty reply from API");
           return;
         }
         appendAssistantWithCitations(data.reply, data.citations || []);
         const written = (data.memories_written || []).length;
-        if (written) {
-          appendMsg("system", `Wrote ${written} memory(ies) from this turn`);
+        if (written) appendMsg("system", `Wrote ${written} memory(ies) from this turn`);
+        if (data.pack_meta) {
+          const pm = data.pack_meta;
+          $("tokenFill").style.width =
+            (pm.budget_tokens ? Math.min(100, Math.round((pm.token_estimate / pm.budget_tokens) * 100)) : 0) + "%";
         }
         await refreshMemories();
         await refreshPack(msg);
       } catch (err) {
-        appendMsg("assistant", `Error: ${err.message || err}`);
+        appendMsg("assistant", `Error: ${err.message}`);
       } finally {
         sending = false;
         $("sendBtn").disabled = false;
@@ -431,7 +908,330 @@
       if (e.key === "Enter") sendMessage();
     });
 
+    /* —— Forgetting / consolidate —— */
+    async function runForgetting(source) {
+      try {
+        const data = await api(
+          `/v1/forgetting/run?` + qs({ workspace_id: workspaceId(), org_id: orgId() }),
+          { method: "POST", headers: apiHeaders() }
+        );
+        const msg = `Forgetting pass: ${data.count ?? 0} events`;
+        if (source === "chat") appendMsg("system", msg);
+        adminLog(msg);
+        await refreshMemories();
+        if (currentView === "memory") {
+          refreshStats();
+          refreshGraphMemories();
+          refreshGraph();
+        }
+      } catch (err) {
+        const m = `Forgetting error: ${err.message}`;
+        if (source === "chat") appendMsg("system", m);
+        adminLog(m);
+      }
+    }
+
+    function adminLog(line) {
+      const el = $("adminLog");
+      el.textContent = (new Date().toISOString().slice(11, 19) + "  " + line + "\n") + el.textContent;
+    }
+
+    $("adminForget").addEventListener("click", () => runForgetting("admin"));
+    $("adminConsolidate").addEventListener("click", async () => {
+      try {
+        const data = await api("/v1/memories/consolidate", {
+          method: "POST",
+          headers: apiHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ workspace_id: workspaceId(), org_id: orgId() || undefined, max_groups: 20 }),
+        });
+        adminLog(`Consolidate: wrote ${data.count ?? 0} summaries`);
+        refreshMemories();
+        refreshStats();
+        refreshGraph();
+      } catch (err) {
+        adminLog(`Consolidate error: ${err.message}`);
+      }
+    });
+
+    /* —— Stats / Graph —— */
+    $("refreshStats").addEventListener("click", () => {
+      refreshStats();
+      refreshGraphMemories();
+      refreshGraph();
+    });
+
+    async function refreshStats() {
+      try {
+        const s = await api(`/v1/memories/stats?` + qs({ workspace_id: workspaceId(), org_id: orgId() }), {
+          headers: apiHeaders(),
+        });
+        const grid = $("statsGrid");
+        grid.replaceChildren();
+        const cells = [
+          ["Total", s.total],
+          ["Active", (s.by_status || {}).active || 0],
+          ["Superseded", (s.by_status || {}).superseded || 0],
+          ["Forgotten", (s.by_status || {}).forgotten || 0],
+          ["Entities", s.entity_count],
+          ["Edges", s.edge_count],
+        ];
+        cells.forEach(([l, n]) => {
+          const d = document.createElement("div");
+          d.className = "stat-card";
+          d.innerHTML = `<div class="n">${n}</div><div class="l">${l}</div>`;
+          grid.appendChild(d);
+        });
+      } catch (err) {
+        $("statsGrid").innerHTML = `<div class="stat-card"><div class="l">${err.message}</div></div>`;
+      }
+    }
+
+    async function refreshGraphMemories() {
+      try {
+        const data = await api(`/v1/memories?` + qs({
+          workspace_id: workspaceId(),
+          status: graphFilter,
+          org_id: orgId(),
+        }), { headers: apiHeaders() });
+        const list = $("graphMemoryList");
+        list.replaceChildren();
+        (data.memories || []).forEach((m) =>
+          list.appendChild(renderMemoryCard(m, true, (mem) => showMemoryDetail(mem)))
+        );
+      } catch (err) {
+        $("graphMemoryList").textContent = err.message;
+      }
+    }
+
+    async function showMemoryDetail(m) {
+      selectedMemoryId = m.id;
+      const box = $("memoryDetail");
+      box.replaceChildren();
+      const title = document.createElement("div");
+      title.style.padding = "0.5rem";
+      title.innerHTML = `<strong>${m.type}</strong> · <code>${m.id.slice(0, 12)}</code> · ${m.status}`;
+      box.appendChild(title);
+      const content = document.createElement("p");
+      content.style.padding = "0 0.5rem";
+      content.style.fontSize = "0.9rem";
+      content.textContent = m.content;
+      box.appendChild(content);
+      if (m.entities && m.entities.length) {
+        const e = document.createElement("div");
+        e.style.padding = "0.5rem";
+        e.innerHTML = m.entities.map((x) => `<span class="badge">${x}</span>`).join(" ");
+        box.appendChild(e);
+      }
+      if (m.policy_tags && m.policy_tags.length) {
+        const e = document.createElement("div");
+        e.style.padding = "0 0.5rem 0.5rem";
+        e.innerHTML = "Policy: " + m.policy_tags.map((x) => `<span class="badge${x === "pii" ? " pii" : ""}">${x}</span>`).join(" ");
+        box.appendChild(e);
+      }
+      try {
+        const ex = await api(`/v1/memories/explain?` + qs({
+          memory_id: m.id,
+          workspace_id: workspaceId(),
+          query: $("packQuery").value || "Acme discount VIP",
+          budget: budget(),
+          org_id: orgId(),
+        }), { headers: apiHeaders() });
+        const pre = document.createElement("div");
+        pre.className = "explain-box";
+        pre.textContent = JSON.stringify(ex, null, 2);
+        box.appendChild(pre);
+      } catch (err) {
+        const pre = document.createElement("div");
+        pre.className = "explain-box";
+        pre.textContent = "Explain: " + err.message;
+        box.appendChild(pre);
+      }
+      refreshGraphMemories();
+    }
+
+    function refreshGraph() {
+      api(`/v1/memories/graph?` + qs({ workspace_id: workspaceId(), org_id: orgId(), limit: 60 }), {
+        headers: apiHeaders(),
+      }).then(drawGraph).catch((err) => {
+        const svg = $("graphSvg");
+        svg.innerHTML = "";
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("x", "40");
+        t.setAttribute("y", "40");
+        t.textContent = err.message;
+        svg.appendChild(t);
+      });
+    }
+
+    function drawGraph(data) {
+      const svg = $("graphSvg");
+      svg.innerHTML = "";
+      const nodes = data.nodes || [];
+      const edges = data.edges || [];
+      const W = 800, H = 600;
+      const cx = W / 2, cy = H / 2;
+      const R = Math.min(W, H) * 0.36;
+      const pos = {};
+      nodes.forEach((n, i) => {
+        const a = (i / Math.max(nodes.length, 1)) * Math.PI * 2 - Math.PI / 2;
+        pos[n.id] = {
+          x: cx + Math.cos(a) * R * (0.55 + (i % 3) * 0.18),
+          y: cy + Math.sin(a) * R * (0.55 + ((i + 1) % 3) * 0.18),
+        };
+      });
+      edges.forEach((e) => {
+        if (!pos[e.src] || !pos[e.dst]) return;
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", pos[e.src].x);
+        line.setAttribute("y1", pos[e.src].y);
+        line.setAttribute("x2", pos[e.dst].x);
+        line.setAttribute("y2", pos[e.dst].y);
+        line.setAttribute("class", "graph-edge" + (e.relation === "supersedes" ? " supersedes" : ""));
+        svg.appendChild(line);
+      });
+      nodes.forEach((n) => {
+        const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        g.setAttribute("class", "graph-node " + (n.status || ""));
+        g.style.cursor = "pointer";
+        const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        c.setAttribute("cx", pos[n.id].x);
+        c.setAttribute("cy", pos[n.id].y);
+        c.setAttribute("r", selectedMemoryId === n.id ? 14 : 10);
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("x", pos[n.id].x + 14);
+        t.setAttribute("y", pos[n.id].y + 4);
+        t.textContent = (n.label || "").slice(0, 28);
+        g.appendChild(c);
+        g.appendChild(t);
+        g.addEventListener("click", () => {
+          selectedMemoryId = n.id;
+          showMemoryDetail({
+            id: n.id,
+            type: n.type,
+            status: n.status,
+            content: n.label,
+            entities: n.entities,
+            policy_tags: n.policy_tags,
+          });
+          refreshGraph();
+        });
+        svg.appendChild(g);
+      });
+      if (!nodes.length) {
+        const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        t.setAttribute("x", "40");
+        t.setAttribute("y", "40");
+        t.setAttribute("fill", "#5a6f66");
+        t.textContent = "No memories yet — chat in Session A to populate the graph.";
+        svg.appendChild(t);
+      }
+    }
+
+    /* —— Packer Lab —— */
+    $("runPack").addEventListener("click", runLabPack);
+    $("runExplain").addEventListener("click", async () => {
+      if (!selectedMemoryId) {
+        $("labExplain").hidden = false;
+        $("labExplain").textContent = "Select a packed memory first (or pick one in Memory Graph).";
+        return;
+      }
+      try {
+        const ex = await api(`/v1/memories/explain?` + qs({
+          memory_id: selectedMemoryId,
+          workspace_id: workspaceId(),
+          query: $("packQuery").value || "",
+          budget: $("labBudget").value,
+          org_id: orgId(),
+        }), { headers: apiHeaders() });
+        $("labExplain").hidden = false;
+        $("labExplain").textContent = JSON.stringify(ex, null, 2);
+      } catch (err) {
+        $("labExplain").hidden = false;
+        $("labExplain").textContent = err.message;
+      }
+    });
+
+    async function runLabPack() {
+      const query = $("packQuery").value.trim() || "Acme";
+      const asOfRaw = $("asOf").value;
+      let asOf = "";
+      if (asOfRaw) {
+        try { asOf = new Date(asOfRaw).toISOString(); } catch (_) {}
+      }
+      try {
+        const pack = await api(`/v1/memories/pack_preview?` + qs({
+          workspace_id: workspaceId(),
+          query,
+          budget: $("labBudget").value,
+          algorithm: $("labAlgo").value,
+          as_of: asOf || undefined,
+          org_id: orgId(),
+        }), { headers: apiHeaders() });
+        const used = pack.token_estimate || 0;
+        const bud = pack.budget_tokens || parseInt($("labBudget").value, 10);
+        $("labTokenFill").style.width = (bud ? Math.min(100, Math.round((used / bud) * 100)) : 0) + "%";
+        $("labPackMeta").textContent =
+          `Algorithm: ${pack.algorithm} · Tokens: ${used}/${bud} · Candidates: ${pack.candidate_count ?? "—"}` +
+          (asOf ? ` · as_of=${asOf}` : "");
+        const list = $("labPackList");
+        list.replaceChildren();
+        (pack.memories || []).forEach((m) =>
+          list.appendChild(renderMemoryCard(m, false, (mem) => {
+            selectedMemoryId = mem.id;
+            runLabPack();
+          }))
+        );
+        if (pack.explanation_details && pack.explanation_details.length) {
+          $("labExplain").hidden = false;
+          $("labExplain").textContent = pack.explanation_details
+            .slice(0, 8)
+            .map((d) => JSON.stringify(d))
+            .join("\n");
+        } else if (pack.explanations) {
+          $("labExplain").hidden = false;
+          $("labExplain").textContent = (pack.explanations || []).join("\n");
+        }
+        $("retrieveHint").textContent =
+          `Packer Lab: ${pack.candidate_count ?? "?"} hybrid candidates → ${(pack.memories || []).length} packed (${pack.algorithm}).`;
+      } catch (err) {
+        $("labPackMeta").textContent = "Error: " + err.message;
+      }
+    }
+
+    /* —— Admin / health —— */
+    async function checkHealth() {
+      try {
+        const h = await api("/v1/health");
+        $("healthPill").classList.add("ok");
+        $("healthText").textContent = "ok";
+        $("rbacLog").textContent = `Health: ${JSON.stringify(h)}`;
+      } catch (err) {
+        $("healthPill").classList.remove("ok");
+        $("healthText").textContent = "down";
+        $("rbacLog").textContent = "Health failed: " + err.message;
+      }
+    }
+
+    $("pingHealth").addEventListener("click", checkHealth);
+
+    async function scanPolicyTags() {
+      try {
+        const data = await api(`/v1/memories?` + qs({ workspace_id: workspaceId(), org_id: orgId() }), {
+          headers: apiHeaders(),
+        });
+        const tagged = (data.memories || []).filter((m) => m.policy_tags && m.policy_tags.length);
+        $("policySummary").textContent = tagged.length
+          ? tagged.map((m) => `${m.id.slice(0, 8)} [${(m.policy_tags || []).join(",")}] ${(m.content || "").slice(0, 48)}`).join("\n")
+          : "No policy-tagged memories in this workspace.";
+      } catch (err) {
+        $("policySummary").textContent = err.message;
+      }
+    }
+    $("loadPolicyMemories").addEventListener("click", scanPolicyTags);
+
+    checkHealth();
     refreshMemories();
+    setInterval(checkHealth, 30000);
   </script>
 </body>
 </html>

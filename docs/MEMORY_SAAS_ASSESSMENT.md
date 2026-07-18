@@ -245,3 +245,36 @@ Design notes: [`docs/research/LOOP3_NOTES.md`](research/LOOP3_NOTES.md).
 | Billing, PITR, policy engine | Not started |
 
 **Verdict after Loop 3:** Scientifically **stronger** (BM25+ANN+PPR, stale-leak closed, LoCoMo-style evals) and SaaS **closer** (real org isolation + Postgres path) — still a hackathon-grade Memory OS, not production multi-tenant cloud.
+
+---
+
+## Progress after Loop 4–5 (2026-07-18)
+
+Design notes: [`docs/research/LOOP4_NOTES.md`](research/LOOP4_NOTES.md), [`docs/research/LOOP5_NOTES.md`](research/LOOP5_NOTES.md).
+
+### Loop 4 (shipped earlier)
+
+LLM-optional importance, reflection-*style* consolidate summaries, policy PII/retention stubs, lexical `cite_overlap` explain, as-of LoCoMo-*style* fixtures, env-map RBAC roles.
+
+### Loop 5 newly shipped
+
+| Item | Status | Honesty note |
+|------|--------|--------------|
+| Heuristic faithfulness critic | **Shipped** — `faithfulness_score` + pack soft-demote | Not NLI/entailment |
+| Adversarial injection quarantine | **Shipped** — detect/tag/exclude; turn-level inherit | Pattern quarantine — not full guardrail |
+| Utility outcome writeback | **Shipped** — `record_outcome` + HTTP/OpenAI tool | Labeled deltas — not RL |
+| Async sleep-time consolidate | **Shipped** — in-process job worker | Not Celery/durable queue |
+| Temporal supersedes-chain expand | **Shipped** — retrieve on temporal cues | Not Graphiti temporal KG |
+| OpenAI tools + SSE chat | **Shipped** — `/v1/openai/tools`, `/v1/chat/stream` | Not Chat Completions proxy |
+| Console stats/graph hooks | **Shipped** — `/v1/memories/stats`, `/graph` | UI inspector helpers |
+
+### Remaining gaps
+
+| Gap | Notes |
+|-----|-------|
+| OAuth / full SaaS RBAC | Env-map roles only |
+| NLI faithfulness / official LoCoMo dumps | Deferred |
+| Durable sleep-time / managed vector DB | Deferred |
+| Billing, PITR | Deferred |
+
+**Verdict after Loop 5:** Scientifically **stronger** on faithfulness signals, injection hardening, outcome utility, and temporal chain retrieve; SaaS surface **wider** (OpenAI tools + SSE). Still hackathon-grade Memory OS — not production multi-tenant cloud.

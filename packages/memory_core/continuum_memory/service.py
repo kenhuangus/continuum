@@ -75,10 +75,25 @@ class MemoryService:
             client=self.client,
         )
         written: list[Memory] = []
+        turn_injection = False
+        try:
+            from continuum_memory.injection import detect_injection
+
+            turn_injection = bool(detect_injection(user_text or ""))
+        except Exception:
+            turn_injection = False
         for mem in extracted:
             mem.org_id = org_id
             mem.workspace_id = workspace_id
             mem.source.setdefault("session_id", session_id)
+            if turn_injection:
+                tags = list(mem.policy_tags or [])
+                for t in ("injection_risk", "untrusted"):
+                    if t not in tags:
+                        tags.append(t)
+                mem.policy_tags = tags
+                mem.confidence = min(float(mem.confidence), 0.35)
+                mem.source = {**(mem.source or {}), "turn_injection": True}
             if not mem.slots:
                 mem.slots = extract_slots(mem.content, mem.entities)
             maybe_assign_llm_importance(mem, self.client)
@@ -297,3 +312,190 @@ class MemoryService:
             except Exception:
                 logger.debug("link_on_remember failed for %s", mem.id, exc_info=True)
         return written
+
+    def record_outcome(
+        self,
+        workspace_id: str,
+        memory_ids: list[str],
+        *,
+        success: bool,
+        note: str | None = None,
+        org_id: str | None = None,
+        delta_success: float = 0.15,
+        delta_failure: float = 0.2,
+    ) -> dict[str, Any]:
+        """Labeled utility writeback from agent/user outcomes.
+
+        Honest claim: explicit reinforcement stub — not offline RL / causal credit.
+        """
+        from continuum_memory.schemas import MemoryType
+        import uuid
+        from datetime import datetime, timezone
+
+        updated: list[dict[str, Any]] = []
+        for mid in memory_ids or []:
+            mem = self.get(mid, workspace_id, org_id=org_id)
+            if mem is None:
+                continue
+            old_u = float(mem.utility)
+            if success:
+                new_u = min(2.0, old_u + float(delta_success))
+            else:
+                new_u = max(0.1, old_u - float(delta_failure))
+            try:
+                self.store.update_utility(mem.id, new_u)
+            except Exception:
+                continue
+            updated.append(
+                {
+                    "id": mem.id,
+                    "utility_before": old_u,
+                    "utility_after": new_u,
+                    "success": success,
+                }
+            )
+
+        procedural: Memory | None = None
+        if note:
+            now = datetime.now(timezone.utc)
+            tag = "outcome:ok" if success else "outcome:fail"
+            procedural = Memory(
+                id=str(uuid.uuid4()),
+                org_id=org_id or "org_demo",
+                workspace_id=workspace_id,
+                type=MemoryType.PROCEDURAL,
+                content=f"Outcome {'success' if success else 'failure'} note: {note}",
+                entities=[],
+                confidence=0.7,
+                utility=1.1 if success else 0.8,
+                created_at=now,
+                last_accessed_at=now,
+                source={"source": "outcome_writeback", "success": success},
+                policy_tags=[tag, "reflection"],
+            )
+            procedural = self.remember(procedural)
+
+        return {
+            "workspace_id": workspace_id,
+            "success": success,
+            "updated": updated,
+            "procedural_id": procedural.id if procedural else None,
+        }
+
+    def consolidate_async(
+        self,
+        workspace_id: str,
+        max_groups: int = 20,
+        *,
+        org_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Enqueue sleep-time consolidate job (in-process thread stub)."""
+        from continuum_memory.sleep_worker import enqueue_consolidate
+
+        def _fn() -> list[Memory]:
+            return self.consolidate(workspace_id, max_groups=max_groups, org_id=org_id)
+
+        return enqueue_consolidate(
+            _fn,
+            workspace_id=workspace_id,
+            meta={"max_groups": max_groups, "org_id": org_id},
+        )
+
+    def workspace_stats(
+        self,
+        workspace_id: str,
+        *,
+        org_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Counts by status/type plus entity + edge tallies for the console."""
+        items = self.list_memories(workspace_id, None, org_id=org_id)
+        by_status: dict[str, int] = {}
+        by_type: dict[str, int] = {}
+        entities: set[str] = set()
+        for m in items:
+            st = m.status.value if hasattr(m.status, "value") else str(m.status)
+            ty = m.type.value if hasattr(m.type, "value") else str(m.type)
+            by_status[st] = by_status.get(st, 0) + 1
+            by_type[ty] = by_type.get(ty, 0) + 1
+            for e in m.entities or []:
+                if e:
+                    entities.add(e.lower())
+        edge_count = 0
+        if hasattr(self.store, "edges_for"):
+            seen: set[str] = set()
+            for m in items:
+                try:
+                    for edge in self.store.edges_for(workspace_id, m.id):
+                        eid = edge.get("id") if isinstance(edge, dict) else None
+                        if eid and eid not in seen:
+                            seen.add(eid)
+                            edge_count += 1
+                except Exception:
+                    continue
+        return {
+            "workspace_id": workspace_id,
+            "total": len(items),
+            "by_status": by_status,
+            "by_type": by_type,
+            "entity_count": len(entities),
+            "edge_count": edge_count,
+        }
+
+    def workspace_graph(
+        self,
+        workspace_id: str,
+        *,
+        org_id: str | None = None,
+        limit: int = 80,
+    ) -> dict[str, Any]:
+        """Nodes + edges for the Memory Graph inspector."""
+        items = self.list_memories(workspace_id, None, org_id=org_id)[:limit]
+        nodes = [
+            {
+                "id": m.id,
+                "label": (m.content or "")[:72],
+                "type": m.type.value if hasattr(m.type, "value") else str(m.type),
+                "status": m.status.value if hasattr(m.status, "value") else str(m.status),
+                "entities": m.entities or [],
+                "supersedes": m.supersedes or [],
+                "superseded_by": m.superseded_by,
+                "policy_tags": m.policy_tags or [],
+            }
+            for m in items
+        ]
+        id_set = {n["id"] for n in nodes}
+        edges: list[dict[str, Any]] = []
+        seen_e: set[str] = set()
+        if hasattr(self.store, "edges_for"):
+            for m in items:
+                try:
+                    for edge in self.store.edges_for(workspace_id, m.id):
+                        if not isinstance(edge, dict):
+                            continue
+                        eid = edge.get("id") or f"{edge.get('src_id')}-{edge.get('dst_id')}-{edge.get('relation')}"
+                        if eid in seen_e:
+                            continue
+                        src, dst = edge.get("src_id"), edge.get("dst_id")
+                        if src in id_set and dst in id_set:
+                            seen_e.add(eid)
+                            edges.append(
+                                {
+                                    "id": eid,
+                                    "src": src,
+                                    "dst": dst,
+                                    "relation": edge.get("relation") or "related_to",
+                                }
+                            )
+                except Exception:
+                    continue
+        # Synthesize supersedes edges from memory fields when store has none.
+        for m in items:
+            for old in m.supersedes or []:
+                if old in id_set:
+                    eid = f"supersedes:{m.id}:{old}"
+                    if eid not in seen_e:
+                        seen_e.add(eid)
+                        edges.append(
+                            {"id": eid, "src": m.id, "dst": old, "relation": "supersedes"}
+                        )
+        return {"workspace_id": workspace_id, "nodes": nodes, "edges": edges}

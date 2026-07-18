@@ -221,6 +221,27 @@ def retrieve_candidates(
     except Exception:
         pass
 
+    # Temporal supersedes-chain expand when query has before/after/as-of cues
+    # (Loop 5 — not full temporal KG reasoning).
+    try:
+        from continuum_memory.graph import expand_supersedes_chain, query_has_temporal_cues
+
+        if query_has_temporal_cues(query) or as_of is not None:
+            chain = expand_supersedes_chain(
+                store,
+                workspace_id,
+                [m.id for m in merged],
+                depth=3,
+                limit=24,
+                as_of=as_of,
+            )
+            for mem in chain:
+                if mem.id not in seen:
+                    seen.add(mem.id)
+                    merged.append(mem)
+    except Exception:
+        pass
+
     # Defense-in-depth: graph/PPR expansion can pull in edges that were not
     # scoped by org_id at the store layer (memory_edges are workspace-scoped
     # today). Strip any cross-org leakage before packing/ranking.

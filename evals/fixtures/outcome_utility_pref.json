@@ -1,0 +1,24 @@
+{
+  "workspace_id": "outcome_utility_ws",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {
+        "user": "Brightside consulting retainer is $8k monthly.",
+        "assistant": "Retainer $8k."
+      },
+      {
+        "user": "Brightside prefers Slack for escalations.",
+        "assistant": "Slack preferred."
+      }
+    ]
+  },
+  "session_b": {
+    "session_id": "s-b",
+    "query": "Brightside retainer and escalation channel?"
+  },
+  "critical_facts": ["8k", "Slack"],
+  "stale_facts": [],
+  "budget_tokens": 350
+}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from continuum_memory.schemas import Memory, MemoryStatus
@@ -242,3 +243,87 @@ def expand_ppr(
     by_id = {m.id: m for m in memories}
     ordered = [by_id[nid] for nid in ranked_ids if nid in by_id]
     return [m for m in ordered if m.status == MemoryStatus.ACTIVE]
+
+
+_TEMPORAL_CUE_RE = re.compile(
+    r"(?i)\b(?:before|after|previously|earlier|at the time|as of|was|were|used to|back then)\b"
+)
+
+
+def query_has_temporal_cues(query: str) -> bool:
+    return bool(_TEMPORAL_CUE_RE.search(query or ""))
+
+
+def expand_supersedes_chain(
+    store,
+    workspace_id: str,
+    seed_ids: list[str],
+    *,
+    depth: int = 3,
+    limit: int = 24,
+    as_of=None,
+) -> list[Memory]:
+    """Walk supersedes / superseded_by chains from seeds (temporal multi-hop stub).
+
+    Honest claim: edge/field chain walk — not Graphiti bi-temporal KG reasoning.
+    Includes SUPERSEDED neighbors when as_of is set so point-in-time packs can
+    still surface historical winners.
+    """
+    if not seed_ids:
+        return []
+    from continuum_memory.schemas import MemoryStatus
+
+    frontier = list(seed_ids)
+    seen: set[str] = set(seed_ids)
+    collected: list[Memory] = []
+
+    for _ in range(max(1, depth)):
+        next_frontier: list[str] = []
+        for sid in frontier:
+            mem = store.get(sid) if hasattr(store, "get") else None
+            if mem is None:
+                continue
+            related_ids: list[str] = []
+            for old in mem.supersedes or []:
+                related_ids.append(old)
+            if mem.superseded_by:
+                related_ids.append(mem.superseded_by)
+            # Also follow store edges labeled supersedes when present
+            if hasattr(store, "edges_for"):
+                try:
+                    for edge in store.edges_for(workspace_id, sid):
+                        if not isinstance(edge, dict):
+                            continue
+                        if str(edge.get("relation") or "").lower() != "supersedes":
+                            continue
+                        for key in ("src_id", "dst_id"):
+                            nid = edge.get(key)
+                            if nid and nid != sid:
+                                related_ids.append(str(nid))
+                except Exception:
+                    pass
+            for nid in related_ids:
+                if nid in seen:
+                    continue
+                seen.add(nid)
+                neighbor = store.get(nid)
+                if neighbor is None:
+                    continue
+                if neighbor.workspace_id != workspace_id:
+                    continue
+                if as_of is not None:
+                    if neighbor.status == MemoryStatus.FORGOTTEN:
+                        continue
+                elif neighbor.status != MemoryStatus.ACTIVE:
+                    # Without as_of, still allow SUPERSEDED into temporal pool
+                    # so "what was true before" queries can pack historical facts.
+                    if neighbor.status != MemoryStatus.SUPERSEDED:
+                        continue
+                collected.append(neighbor)
+                next_frontier.append(nid)
+                if len(collected) >= limit:
+                    return collected
+        frontier = next_frontier
+        if not frontier:
+            break
+    return collected

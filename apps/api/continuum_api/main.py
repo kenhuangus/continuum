@@ -13,7 +13,7 @@ from typing import Any, Callable
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -286,6 +286,22 @@ class ConsolidateRequest(BaseModel):
     max_groups: int = 20
 
 
+class OutcomeRequest(BaseModel):
+    org_id: str | None = None
+    workspace_id: str
+    memory_ids: list[str] = Field(default_factory=list)
+    success: bool = True
+    note: str | None = None
+
+
+class OpenAIToolCallRequest(BaseModel):
+    """OpenAI-compatible tool call dispatcher (not a full Chat Completions proxy)."""
+
+    name: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    org_id: str | None = None
+
+
 def _idempotency_get(key: str | None) -> Any | None:
     if not key:
         return None
@@ -351,6 +367,59 @@ def chat(req: ChatRequest, request: Request) -> dict:
     }
     _idempotency_set(idem, result)
     return result
+
+
+@app.post("/v1/chat/stream")
+def chat_stream(req: ChatRequest, request: Request) -> StreamingResponse:
+    """SSE chat hook: pack → reply → written → done.
+
+    Honest claim: simple event stream for UX — not token-level LLM streaming.
+    """
+    _require_role(request, "writer", "admin")
+    org = _resolve_request_org(request, req.org_id)
+
+    def _events():
+        try:
+            pack = memory_service.pack(
+                req.workspace_id,
+                req.message,
+                req.memory_token_budget,
+                req.packer,
+                org_id=org,
+            )
+            yield _sse(
+                "pack",
+                {
+                    "token_estimate": pack.token_estimate,
+                    "algorithm": pack.algorithm,
+                    "candidate_count": pack.candidate_count,
+                    "memory_ids": [m.id for m in pack.memories],
+                },
+            )
+            reply, citations = agent.reply(
+                req.workspace_id, req.session_id, req.message, pack
+            )
+            yield _sse("reply", {"reply": reply, "citations": citations})
+            written = memory_service.ingest_turn(
+                req.workspace_id,
+                req.session_id,
+                req.message,
+                reply,
+                org_id=org,
+            )
+            yield _sse(
+                "written",
+                {"count": len(written), "ids": [m.id for m in written]},
+            )
+            yield _sse("done", {"ok": True})
+        except Exception as exc:
+            yield _sse("error", {"detail": str(exc)})
+
+    return StreamingResponse(_events(), media_type="text/event-stream")
+
+
+def _sse(event: str, data: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 @app.get("/v1/memories")
@@ -467,6 +536,299 @@ def consolidate_memories(req: ConsolidateRequest, request: Request) -> dict:
         "written": [m.model_dump(mode="json") for m in written],
         "count": len(written),
     }
+
+
+@app.post("/v1/memories/consolidate/async")
+def consolidate_memories_async(req: ConsolidateRequest, request: Request) -> dict:
+    """Sleep-time style async consolidate (in-process thread stub)."""
+    _require_role(request, "writer", "admin")
+    org = _resolve_request_org(request, req.org_id)
+    try:
+        job = memory_service.consolidate_async(
+            req.workspace_id, max_groups=req.max_groups, org_id=org
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return job
+
+
+@app.get("/v1/memories/consolidate/jobs/{job_id}")
+def consolidate_job_status(job_id: str, request: Request) -> dict:
+    _require_role(request, "reader", "writer", "admin")
+    from continuum_memory.sleep_worker import get_job
+
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return job
+
+
+@app.post("/v1/memories/outcome")
+def memory_outcome(req: OutcomeRequest, request: Request) -> dict:
+    _require_role(request, "writer", "admin")
+    org = _resolve_request_org(request, req.org_id)
+    return memory_service.record_outcome(
+        req.workspace_id,
+        req.memory_ids,
+        success=req.success,
+        note=req.note,
+        org_id=org,
+    )
+
+
+_OPENAI_MEMORY_TOOLS: list[dict[str, Any]] = [
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_search",
+            "description": "Search memories in a workspace",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "workspace_id": {"type": "string"},
+                    "query": {"type": "string"},
+                },
+                "required": ["workspace_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_remember",
+            "description": "Store a memory",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "workspace_id": {"type": "string"},
+                    "content": {"type": "string"},
+                    "type": {"type": "string"},
+                    "entities": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["workspace_id", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_forget",
+            "description": "Forget a memory by id",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "memory_id": {"type": "string"},
+                    "workspace_id": {"type": "string"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["memory_id", "workspace_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_list",
+            "description": "List workspace memories",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "workspace_id": {"type": "string"},
+                    "status": {"type": "string"},
+                },
+                "required": ["workspace_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_pack_preview",
+            "description": "Retrieve+pack preview under a token budget",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "workspace_id": {"type": "string"},
+                    "query": {"type": "string"},
+                    "budget": {"type": "integer"},
+                    "algorithm": {"type": "string"},
+                },
+                "required": ["workspace_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_explain",
+            "description": "Explain pack inclusion for a memory",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "memory_id": {"type": "string"},
+                    "workspace_id": {"type": "string"},
+                    "query": {"type": "string"},
+                },
+                "required": ["memory_id", "workspace_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_consolidate",
+            "description": "Consolidate episodic memories into semantic distillations",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "workspace_id": {"type": "string"},
+                    "max_groups": {"type": "integer"},
+                },
+                "required": ["workspace_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_outcome",
+            "description": "Record outcome feedback to adjust memory utility",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "workspace_id": {"type": "string"},
+                    "memory_ids": {"type": "array", "items": {"type": "string"}},
+                    "success": {"type": "boolean"},
+                    "note": {"type": "string"},
+                },
+                "required": ["workspace_id", "memory_ids", "success"],
+            },
+        },
+    },
+]
+
+
+@app.get("/v1/openai/tools")
+def openai_memory_tools(request: Request) -> dict:
+    """OpenAI function/tool schemas for Continuum memory ops."""
+    _require_role(request, "reader", "writer", "admin")
+    return {"tools": _OPENAI_MEMORY_TOOLS}
+
+
+@app.post("/v1/openai/tools/call")
+def openai_tool_call(req: OpenAIToolCallRequest, request: Request) -> dict:
+    """Dispatch an OpenAI-shaped tool call against MemoryService."""
+    name = (req.name or "").strip()
+    args = dict(req.arguments or {})
+    org = _resolve_request_org(request, req.org_id or args.get("org_id"))
+
+    if name in ("memory_search", "memory_list", "memory_pack_preview", "memory_explain"):
+        _require_role(request, "reader", "writer", "admin")
+    elif name in ("memory_remember", "memory_consolidate", "memory_outcome"):
+        _require_role(request, "writer", "admin")
+    elif name == "memory_forget":
+        _require_role(request, "admin")
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown tool: {name}")
+
+    ws = str(args.get("workspace_id") or "")
+    if not ws and name != "memory_forget":
+        raise HTTPException(status_code=400, detail="workspace_id required")
+
+    if name == "memory_search":
+        items = memory_service.search(ws, str(args.get("query") or ""), org_id=org)
+        return {"result": [m.model_dump(mode="json") for m in items]}
+    if name == "memory_list":
+        st = None
+        if args.get("status"):
+            st = MemoryStatus(str(args["status"]))
+        items = memory_service.list_memories(ws, st, org_id=org)
+        return {"result": [m.model_dump(mode="json") for m in items]}
+    if name == "memory_remember":
+        from datetime import datetime, timezone
+
+        now = datetime.now(timezone.utc)
+        mtype = MemoryType(str(args.get("type") or "semantic"))
+        mem = Memory(
+            id=str(uuid.uuid4()),
+            org_id=org,
+            workspace_id=ws,
+            type=mtype,
+            content=str(args.get("content") or ""),
+            entities=list(args.get("entities") or []),
+            confidence=float(args.get("confidence") or 0.9),
+            created_at=now,
+            last_accessed_at=now,
+            source={"source": "openai_tools"},
+        )
+        stored = memory_service.remember(mem)
+        return {"result": stored.model_dump(mode="json")}
+    if name == "memory_forget":
+        mid = str(args.get("memory_id") or "")
+        result = memory_service.forget(
+            mid,
+            reason=str(args.get("reason") or "manual"),
+            workspace_id=ws or None,
+            org_id=org,
+        )
+        return {"result": result}
+    if name == "memory_pack_preview":
+        pack = memory_service.pack(
+            ws,
+            str(args.get("query") or ""),
+            int(args.get("budget") or 1500),
+            str(args.get("algorithm") or "type_quota"),
+            org_id=org,
+        )
+        return {"result": pack.model_dump(mode="json")}
+    if name == "memory_explain":
+        result = memory_service.explain(
+            str(args.get("memory_id") or ""),
+            ws,
+            str(args.get("query") or ""),
+            org_id=org,
+            structured=True,
+        )
+        return {"result": result}
+    if name == "memory_consolidate":
+        written = memory_service.consolidate(
+            ws, max_groups=int(args.get("max_groups") or 20), org_id=org
+        )
+        return {"result": {"count": len(written), "ids": [m.id for m in written]}}
+    if name == "memory_outcome":
+        return {
+            "result": memory_service.record_outcome(
+                ws,
+                list(args.get("memory_ids") or []),
+                success=bool(args.get("success", True)),
+                note=args.get("note"),
+                org_id=org,
+            )
+        }
+    raise HTTPException(status_code=400, detail=f"Unknown tool: {name}")
+
+
+@app.get("/v1/memories/stats")
+def memory_stats(
+    request: Request,
+    workspace_id: str = Query(...),
+    org_id: str | None = Query(None),
+) -> dict:
+    _require_role(request, "reader", "writer", "admin")
+    org = _resolve_request_org(request, org_id)
+    return memory_service.workspace_stats(workspace_id, org_id=org)
+
+
+@app.get("/v1/memories/graph")
+def memory_graph(
+    request: Request,
+    workspace_id: str = Query(...),
+    org_id: str | None = Query(None),
+    limit: int = Query(80, ge=1, le=200),
+) -> dict:
+    _require_role(request, "reader", "writer", "admin")
+    org = _resolve_request_org(request, org_id)
+    return memory_service.workspace_graph(workspace_id, org_id=org, limit=limit)
 
 
 @app.get("/v1/memories/{memory_id}")

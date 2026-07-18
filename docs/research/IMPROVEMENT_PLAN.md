@@ -73,6 +73,19 @@ forget pass | consolidate(workspace) distill episodic→semantic
 
 See [`LOOP4_NOTES.md`](./LOOP4_NOTES.md).
 
+### Loop 5 — landed (2026-07-18)
+
+| ID | Task | Honest claim |
+|----|------|--------------|
+| L5.1 | Heuristic `faithfulness_score` + pack soft-demote | Not NLI entailment |
+| L5.2 | Injection detect/quarantine + turn-level tag | Pattern quarantine — not full guardrail |
+| L5.3 | `record_outcome` / `POST /v1/memories/outcome` | Labeled writeback — not RL |
+| L5.4 | Async consolidate sleep worker | In-process thread — not Celery |
+| L5.5 | Temporal supersedes-chain expand | Chain walk — not temporal KG |
+| L5.6 | `/v1/openai/tools` + `/v1/chat/stream` SSE | Schema-compatible + SSE — not Chat Completions proxy |
+
+See [`LOOP5_NOTES.md`](./LOOP5_NOTES.md).
+
 ---
 
 ## MCP / HTTP contracts (agents as clients)

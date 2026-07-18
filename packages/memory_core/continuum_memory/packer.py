@@ -64,6 +64,27 @@ def _rir_disabled() -> bool:
     return os.environ.get("CONTINUUM_DISABLE_RIR", "").lower() in ("1", "true", "yes")
 
 
+def _faithfulness_disabled() -> bool:
+    return os.environ.get("CONTINUUM_DISABLE_FAITHFULNESS", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _faithfulness_adjust(memory: Memory, query: str) -> float:
+    """Soft demote low-faithfulness candidates when query is present."""
+    if _faithfulness_disabled() or not (query or "").strip():
+        return 0.0
+    try:
+        from continuum_memory.explain import faithfulness_score
+
+        faith = faithfulness_score(query, memory.content, entities=memory.entities)
+        return -0.3 * (1.0 - float(faith.get("score", 0.0)))
+    except Exception:
+        return 0.0
+
+
 def _legacy_score(memory: Memory, query: str) -> float:
     q = query.lower()
     score = memory.utility * memory.confidence
@@ -75,6 +96,7 @@ def _legacy_score(memory: Memory, query: str) -> float:
     score += _LEGACY_TYPE_BOOST.get(memory.type, 1.0)
     if _has_stale_language(memory):
         score -= _STALE_LANGUAGE_PENALTY
+    score += _faithfulness_adjust(memory, query)
     return score
 
 
@@ -87,6 +109,7 @@ def _score(
         score = rir_scores.get(memory.id, 0.0) + _TYPE_BOOST.get(memory.type, 0.0)
         if _has_stale_language(memory):
             score -= _STALE_LANGUAGE_PENALTY
+        score += _faithfulness_adjust(memory, query)
         return score
     return _legacy_score(memory, query)
 

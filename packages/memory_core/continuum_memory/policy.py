@@ -57,6 +57,13 @@ def apply_policy_on_write(
             **(memory.source or {}),
             "policy_retention_days": int(short_retention_days),
         }
+    # Adversarial injection cues → policy tags (Loop 5)
+    try:
+        from continuum_memory.injection import tag_injection_on_write
+
+        tag_injection_on_write(memory)
+    except Exception:
+        pass
     return memory
 
 
@@ -76,6 +83,14 @@ def filter_by_policy(
     """Drop memories that carry any excluded policy tag."""
     if exclude_tags is None:
         exclude_tags = ["pii"] if pack_exclude_pii_enabled() else []
+        # Injection quarantine defaults ON via CONTINUUM_PACK_EXCLUDE_INJECTION
+        try:
+            from continuum_memory.injection import pack_exclude_injection_enabled
+
+            if pack_exclude_injection_enabled():
+                exclude_tags = list(exclude_tags) + ["injection_risk", "untrusted"]
+        except Exception:
+            pass
     if not exclude_tags:
         return list(memories)
     excluded = {t.lower() for t in exclude_tags}
