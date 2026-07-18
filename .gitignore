@@ -29,3 +29,12 @@ docs/screenshots/*.jpeg
 
 .secrets/
 
+# Demo video pipeline outputs (keep .gitkeep only)
+demo_video/frames/
+demo_video/audio/
+demo_video/*.mp4
+demo_video/*.wav
+demo_video/*.mp3
+demo_video/STATUS.txt
+!demo_video/.gitkeep
+

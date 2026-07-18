@@ -104,6 +104,16 @@ Containerize and deploy to Alibaba Cloud ECS for hackathon proof-of-deployment:
 - **Local smoke:** `docker compose up --build` or `.\infra\scripts\run-local.ps1`
 - **Proof checklist:** [docs/PROOF_OF_ALIBABA_DEPLOYMENT.md](docs/PROOF_OF_ALIBABA_DEPLOYMENT.md)
 
+## Demo video pipeline
+
+Build a ≤3 min Track 1 demo (Playwright screenshots + Qwen TTS + ffmpeg):
+
+```powershell
+.venv\Scripts\python.exe scripts\demo_video\run_pipeline.py
+```
+
+Details, TTS endpoint, and fallbacks: [docs/DEMO_VIDEO_PIPELINE.md](docs/DEMO_VIDEO_PIPELINE.md).
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE).
