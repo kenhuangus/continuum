@@ -1,4 +1,5 @@
 #!/bin/bash
+# Free-trial ECS only — do not run on paid catalog SKUs.
 # cloud-init user-data for Ubuntu 22.04 ECS — installs Docker and runs Continuum.
 # Replace placeholders before use: IMAGE_URI, or build from git clone URL.
 set -euo pipefail

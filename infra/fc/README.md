@@ -1,12 +1,14 @@
 # Function Compute (Phase B alternative)
 
-**ECS + Docker is the recommended hackathon path** for Continuum because:
+> **FREE TRIAL / free CU only.** Use new-customer free CU (e.g. 150k CU/mo) or FC free trial. Abort if billed beyond free quota. Do not use paid FC plans for this path.
+
+**ECS + Docker (free trial) is the recommended hackathon path** for Continuum because:
 
 - The demo UI is served as static files from the same FastAPI process (`apps/web`).
 - SQLite persistence needs a writable volume (`/app/data`), which maps naturally to an ECS disk mount.
 - Single-container deploy is faster to debug than FC custom-container + NAS/OSS wiring.
 
-For Track 1 PoD, follow [../ecs/DEPLOY.md](../ecs/DEPLOY.md) first.
+For Track 1 PoD, follow [../ecs/DEPLOY.md](../ecs/DEPLOY.md) first (ECS free trial). Use FC only when free-CU eligible.
 
 ## When FC might make sense later
 
@@ -16,9 +18,9 @@ For Track 1 PoD, follow [../ecs/DEPLOY.md](../ecs/DEPLOY.md) first.
 
 ## Deploy via Serverless Devs (`s.yaml`)
 
-A starter FC3 custom-container definition lives in [s.yaml](s.yaml) (region `ap-southeast-1`, HTTP trigger on port 8000).
+A starter FC3 custom-container definition lives in [s.yaml](s.yaml) (region `ap-southeast-1`, HTTP trigger on port 8000). `cpu: 0.5` / `memorySize: 1024` is the smallest custom-container path — keep it free-CU eligible.
 
-**Caveats:** FC ephemeral storage is a poor fit for SQLite long-term. Prefer NAS/OSS or an external store for `/app/data`, or keep using ECS for the demo. Cold starts and container image pull latency also apply.
+**Caveats:** FC ephemeral storage is a poor fit for SQLite long-term. Prefer keeping ECS free trial for the demo rather than paid NAS/OSS. Cold starts and container image pull latency also apply. Abort if the deploy would bill beyond free quota.
 
 ### Steps
 

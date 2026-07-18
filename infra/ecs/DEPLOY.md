@@ -1,10 +1,13 @@
 # Deploy Continuum on Alibaba Cloud ECS (primary hackathon path)
 
-Fastest proof-of-deployment path: **Ubuntu 22.04 ECS + Docker + public port 8000**.
+> **Free tier only.** Abort if not free-trial eligible. Do not use pay-as-you-go non-trial SKUs.
+
+Fastest proof-of-deployment path: **Ubuntu 22.04 ECS + Docker + public port 8000** on a free-trial instance.
 
 ## Prerequisites
 
-- Alibaba Cloud **International** account ([alibabacloud.com](https://www.alibabacloud.com))
+- Alibaba Cloud **International** account ([alibabacloud.com](https://www.alibabacloud.com)) with **ECS personal free trial** eligibility
+- Claim trial first: [ECS International Personal Trial Center](https://ecs-buy.alibabacloud.com/trialCenter#/internationalPersonalTrial) (prefer **Singapore `ap-southeast-1`**)
 - `DASHSCOPE_API_KEY` from DashScope / Qwen Cloud console
 - Local Docker (to build image) **or** ACR push (see [../acr/push.md](../acr/push.md))
 - SSH key pair for ECS login
@@ -21,16 +24,16 @@ From repo root:
 ./infra/scripts/build.sh
 ```
 
-## 2. Create ECS instance
+## 2. Create ECS instance (free trial only)
 
-1. Console → **Elastic Compute Service (ECS)** → Create Instance.
-2. Region: e.g. **Singapore (ap-southeast-1)** or nearest International region.
-3. Image: **Ubuntu 22.04 LTS 64-bit**.
-4. Instance type: **ecs.t6-c1m2.large** or similar (2 vCPU / 4 GiB is comfortable).
-5. Networking: default VPC, **assign public IPv4 address**.
+1. Claim a free trial package first at the [ECS International Personal Trial Center](https://ecs-buy.alibabacloud.com/trialCenter#/internationalPersonalTrial). Prefer **Singapore (`ap-southeast-1`)**.
+2. Use **ONLY** the instance type shown in the free trial offer (typically the smallest 1 vCPU class). Set `InstanceType = FREE_TRIAL_INSTANCE_TYPE` from the trial center — never from the paid catalog.
+3. **ABORT** if the console routes to pay-as-you-go / paid catalog instead of a free-trial claim.
+4. Image: **Ubuntu 22.04 LTS 64-bit**.
+5. Networking: default VPC, **assign public IPv4 address**. Keep outbound bandwidth within free-trial limits (prefer 1 Mbps).
 6. Security group: see [security-group.md](security-group.md) — open **22** (your IP) and **8000** (public demo).
 7. Login: SSH key pair.
-8. Optional: attach **Elastic IP** for a stable URL.
+8. Optional: attach **Elastic IP** only if included in free trial / does not incur paid charges.
 
 ## 3. Deploy container
 
@@ -128,6 +131,6 @@ Open in browser: `http://PUBLIC_IP:8000/`
 
 ## Next steps (optional)
 
-- Push image to ACR for repeatable deploys
-- Add SLB + HTTPS certificate
-- See [../fc/README.md](../fc/README.md) for Function Compute (Phase B)
+- Push image to ACR for repeatable deploys (within free tier / trial limits)
+- SLB + HTTPS: **optional future only** — not part of the free-tier path; HTTP on `:8000` is enough for PoD
+- See [../fc/README.md](../fc/README.md) for Function Compute free CU / free trial (Phase B)

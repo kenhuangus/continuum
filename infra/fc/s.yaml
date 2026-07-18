@@ -1,3 +1,4 @@
+# FREE TRIAL / free CU only — abort if billed beyond free quota (e.g. 150k CU/mo new-customer free CU).
 edition: 3.0.0
 name: continuum-fc
 access: default
@@ -8,6 +9,7 @@ resources:
       region: ap-southeast-1
       functionName: continuum-api
       runtime: custom-container
+      # Smallest custom-container path; keep within free-CU eligibility.
       cpu: 0.5
       memorySize: 1024
       timeout: 60

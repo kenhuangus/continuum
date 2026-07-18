@@ -26,3 +26,6 @@ docs/screenshots/*.png
 docs/screenshots/*.jpg
 docs/screenshots/*.jpeg
 !docs/screenshots/alibaba_workbench.png
+
+.secrets/
+

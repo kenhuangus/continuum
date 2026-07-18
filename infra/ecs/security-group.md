@@ -23,4 +23,4 @@ Continuum calls Qwen via DashScope at `https://dashscope-intl.aliyuncs.com` (HTT
 
 - Do **not** store `DASHSCOPE_API_KEY` in this repo; use `/etc/continuum.env` on the instance.
 - Prefer assigning an **Elastic IP** so the public URL stays stable through judging.
-- Optional: put HTTPS in front (SLB + cert) in Phase B; HTTP on `:8000` is enough for MVP PoD.
+- SLB + HTTPS: **optional future only** (typically paid) — not part of the free-tier path. HTTP on `:8000` is enough for MVP PoD.

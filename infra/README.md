@@ -1,8 +1,10 @@
 # Continuum — Alibaba Cloud Deployment Guide
 
+> **WARNING — Free tier only.** Abort if not free-trial eligible. Do not create pay-as-you-go non-trial SKUs. Claim via [ECS Trial Center](https://ecs-buy.alibabacloud.com/trialCenter#/internationalPersonalTrial) (prefer Singapore `ap-southeast-1`) or FC free CU (150k CU/mo) first. Prefer the smallest trial instance type shown in the offer — never from the paid catalog.
+
 Deploy Continuum (FastAPI + demo UI + SQLite) to **Alibaba Cloud International** for the Qwen Cloud Hackathon Track 1 PoD.
 
-**Primary path:** ECS + Docker (fastest). **Optional:** push image to ACR for repeatable pulls.
+**Primary path:** ECS + Docker (fastest), free-trial instance only. **Optional:** push image to ACR for repeatable pulls.
 
 ## Topology
 
@@ -108,8 +110,8 @@ See also [docs/HACKATHON_SUBMIT.md](../docs/HACKATHON_SUBMIT.md).
 
 | Path | Doc | Notes |
 |------|-----|-------|
-| Function Compute | [fc/README.md](fc/README.md) | Custom container; SQLite volume is harder |
-| ACK / SLB / HTTPS | Future | Not required for MVP PoD |
+| Function Compute | [fc/README.md](fc/README.md) | Free CU / free trial only; custom container; SQLite volume is harder |
+| ACK / SLB / HTTPS | Optional future | **Not** for free-tier MVP — paid path; not required for PoD |
 
 ## Scripts reference
 
@@ -121,4 +123,4 @@ See also [docs/HACKATHON_SUBMIT.md](../docs/HACKATHON_SUBMIT.md).
 
 ## No live provisioning in repo
 
-This directory contains **scaffolding only** — Dockerfiles, scripts, and runbooks. Creating ECS instances or spending cloud credits is a manual operator step.
+This directory contains **scaffolding only** — Dockerfiles, scripts, and runbooks. Creating ECS instances is a manual operator step. Use free-trial packages only; abort if the console routes to a paid catalog.

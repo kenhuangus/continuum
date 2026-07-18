@@ -1,18 +1,16 @@
 # Alibaba Cloud International Free Tier — Progress
 
 **Date:** 2026-07-18  
-**Automation:** Playwright headed Chromium (fresh profile — no existing session)  
+**Automation:** (1) Earlier Playwright probe (logged out) · (2) UI automation on **existing** kenhuangus Chrome (no new browser)  
 **Goal:** Claim free trial for **ECS** and/or **Function Compute** (Continuum deploy), stop cleanly at payment.
 
 ---
 
 ## Verdict
 
-**Blocked at login.** Automated browser is **not logged in**. Every console / trial / RAM / billing URL redirects to Sign In. No credentials were entered (none available in the automation profile).
+**RAM AccessKey: SUCCESS** in your existing Chrome session (Quick Start → Power User → AccessKey created).
 
-**Payment gate (documented, not yet interactive):** Free Trial onboarding **Step 2 — Add a Payment Method** (Visa / Mastercard / JCB / Amex / PayPal / RuPay / UPI). No live card-number form was reachable without login; we **stopped** rather than inventing card data.
-
-Your **default browser** was also opened to `https://www.alibabacloud.com/free` so you can log in there in parallel.
+**Still blocked for ECS free trial:** add a real payment method, then claim the ECS trial (prefer Singapore `ap-southeast-1`).
 
 ---
 
@@ -29,7 +27,29 @@ Your **default browser** was also opened to `https://www.alibabacloud.com/free` 
 | 7 | Opened RAM AccessKey `https://ram.console.alibabacloud.com/manage/ak` | **Redirect → Login** |
 | 8 | Captured free-page Step 2 payment method as CC-gate guide | OK — stopped (no fake cards) |
 
-**Not completed (needs you):** Sign in → add real payment method → claim ECS (prefer Singapore `ap-southeast-1`) → optional FC → create RAM AccessKey.
+### RAM AccessKey pass (existing Chrome — 2026-07-18)
+
+| # | Step | Result |
+|---|------|--------|
+| R1 | User dismissed AccessKey security dialog (clicked **Use RAM User AccessKey**) | OK (human) |
+| R2 | Quick Start wizard: Power User For Application Access | OK |
+| R3 | Rename login to `continuum-deploy` | **Missed** (UI click landed wrong); wizard kept default |
+| R4 | Console login unchecked; **Allow to access APIs** checked | OK |
+| R5 | Clicked **Perform** | OK — Create User → Create AccessKey → Attach Policy |
+| R6 | Credentials saved | `.env` (`ALIBABA_CLOUD_*`) + `~/.aliyun/config.json` region `ap-southeast-1` |
+| R7 | `aliyun` CLI binary | **Not on PATH** (config file written anyway) |
+
+| Field | Value |
+|-------|--------|
+| RAM username | `power-application-user` (requested `continuum-deploy`) |
+| AccessKey ID | `LTAI5tBodXqrGPRF2JzUy81h` |
+| AccessKey Secret | stored only in gitignored `.env` / `~/.aliyun/config.json` (not in docs) |
+| Policy | **PowerUserAccess** (system; full cloud access except RAM/IMS/billing management) |
+
+Screenshots (secrets redacted): `docs/screenshots/ram_click_result.png`, `ram_current_page.png`, `ram_bottom.png`, `ram_after_submit.png`.  
+Machine-readable: `docs/alibaba_ram_ak_result.json`.
+
+**Not completed (needs you):** add real payment method → claim ECS (prefer Singapore `ap-southeast-1`) → optional FC. Optional: rename/recreate RAM user as `continuum-deploy` if you want that exact name.
 
 ---
 
@@ -37,9 +57,10 @@ Your **default browser** was also opened to `https://www.alibabacloud.com/free` 
 
 | Gate | URL | What you see |
 |------|-----|----------------|
-| **Login (hard stop for automation)** | `https://account.alibabacloud.com/login/login.htm?oauth_callback=https%3A%2F%2Fecs-buy.alibabacloud.com%2FtrialCenter#/internationalPersonalTrial` | Sign In form |
-| **Payment (next gate after login)** | Documented on free landing as Step 2; live form after auth (e.g. usercenter payment method) | Add payment method |
-| **RAM AK** | Same login wall with callback to `/manage/ak` | Sign In |
+| **Payment (for ECS free trial)** | Free landing Step 2 / usercenter payment method | Add payment method |
+| **ECS trial claim** | https://ecs-buy.alibabacloud.com/trialCenter#/internationalPersonalTrial | Claim after payment |
+| ~~Login~~ | — | **Cleared** (kenhuangus Chrome session) |
+| ~~RAM AK~~ | — | **Done** |
 
 ---
 
@@ -56,8 +77,11 @@ Your **default browser** was also opened to `https://www.alibabacloud.com/free` 
 | `docs/screenshots/alibaba_ram_accesskey_status.png` | RAM AK URL → **Sign In** redirect |
 | `docs/screenshots/alibaba_fc_after_cta.png` | After FC Free Trial click |
 | `docs/screenshots/alibaba_billing_probe_*.png` | Billing probes → login |
+| `docs/screenshots/ram_click_result.png` | RAM wizard result (**secrets redacted**) |
+| `docs/screenshots/ram_bottom.png` | Perform button / PowerUserAccess form |
+| `docs/screenshots/ram_after_submit.png` | Create User in progress |
 
-Raw JSON log: `docs/alibaba_free_tier_progress.json`
+Raw JSON log: `docs/alibaba_free_tier_progress.json` · RAM result: `docs/alibaba_ram_ak_result.json`
 
 ---
 
@@ -100,11 +124,9 @@ After login, complete **Step 2: Add a Payment Method**:
 3. Agree to terms → confirm / claim the free trial package.  
 4. Optional: also claim **Function Compute** from https://www.alibabacloud.com/free or the FC console.
 
-### D. RAM AccessKey (after login; usually no extra CC)
+### D. RAM AccessKey — DONE
 
-1. https://ram.console.alibabacloud.com/manage/ak  
-2. **Create AccessKey** → complete MFA if asked.  
-3. Store AccessKey ID + Secret **outside git** (e.g. `aliyun configure` / env vars). See `docs/ALIBABA_DEPLOY_GUIDE.md`.
+Credentials are in gitignored `.env` and `~/.aliyun/config.json` (region `ap-southeast-1`). AccessKey ID: `LTAI5tBodXqrGPRF2JzUy81h`. Install `aliyun` CLI on PATH if you want `aliyun ecs ...` commands.
 
 ---
 

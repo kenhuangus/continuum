@@ -1,11 +1,11 @@
 {
   "ROSTemplateFormatVersion": "2015-09-01",
-  "Description": "Continuum ECS + Docker stack (VPC, VSwitch, SecurityGroup, Instance).",
+  "Description": "Continuum ECS + Docker stack (VPC, VSwitch, SecurityGroup, Instance). FREE-TRIAL-ONLY scaffolding — abort deploy if not free-trial eligible; do not use paid catalog SKUs.",
   "Parameters": {
     "InstanceType": {
       "Type": "String",
-      "Default": "ecs.t5-lc1m1.small",
-      "Description": "ECS instance type"
+      "Default": "FREE_TRIAL_INSTANCE_TYPE",
+      "Description": "FREE TRIAL ONLY — replace with the exact type from ECS International Personal Trial Center (https://ecs-buy.alibabacloud.com/trialCenter#/internationalPersonalTrial); do not use paid catalog types. Abort deploy if not free-trial eligible."
     },
     "ImageId": {
       "Type": "String",
@@ -96,7 +96,7 @@
           }
         ],
         "AssignPublicIpAddress": true,
-        "InternetMaxBandwidthOut": 5,
+        "InternetMaxBandwidthOut": 1,
         "UserData": {
           "Fn::Base64Encode": {
             "Fn::Sub": [

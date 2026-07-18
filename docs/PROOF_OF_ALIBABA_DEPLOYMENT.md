@@ -1,5 +1,7 @@
 # Proof of Alibaba Cloud Deployment
 
+**Constraint:** Free-trial only — use `InstanceType = FREE_TRIAL_INSTANCE_TYPE` (exact type from [ECS Trial Center](https://ecs-buy.alibabacloud.com/trialCenter#/internationalPersonalTrial)); do not recommend paid ROS defaults or pay-as-you-go non-trial SKUs. Abort if not free-trial eligible.
+
 **Status:** Scaffolding ready · **Live Alibaba deploy:** blocked (no AccessKey / console session on this machine)
 
 Continuum is containerized and smoke-tested locally. A public Alibaba endpoint and Workbench screenshot still require account credentials (see [Blockers](#blockers-machine-status-2026-07-18)).
@@ -11,7 +13,7 @@ Continuum is containerized and smoke-tested locally. A public Alibaba endpoint a
 | **Code file (DashScope / Qwen Cloud)** | `packages/agent/continuum_agent/client.py` — `DEFAULT_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"` |
 | **Workbench screenshot path** | `docs/screenshots/alibaba_workbench.png` *(not captured yet — see [screenshots/README.md](screenshots/README.md))* |
 | **Deployed endpoint (`PUBLIC_URL`)** | `TBD` — e.g. `http://<ECS_PUBLIC_IP>:8000` or FC HTTP trigger URL after deploy |
-| **Instance / region** | `INSTANCE_ID=TBD` · prefer `ap-southeast-1` (Singapore, International) |
+| **Instance / region** | `INSTANCE_ID=TBD` · `InstanceType=FREE_TRIAL_INSTANCE_TYPE` (from trial center) · prefer `ap-southeast-1` (Singapore, International) |
 
 Paste a **public GitHub blob URL** to `client.py` on Devpost. Upload the Workbench PNG once captured.
 
@@ -42,16 +44,17 @@ Primary path: **ECS + Docker**. Alternative: **Function Compute** custom contain
    ```
    Or: `docker build -t continuum:local .` then `docker compose up`.
 
-3. **Deploy (ECS — recommended)**
-   - Follow [infra/ecs/DEPLOY.md](../infra/ecs/DEPLOY.md)
+3. **Deploy (ECS — recommended, free trial only)**
+   - Claim trial at Trial Center; follow [infra/ecs/DEPLOY.md](../infra/ecs/DEPLOY.md)
+   - `InstanceType = FREE_TRIAL_INSTANCE_TYPE` from the offer — abort if paid catalog
    - Security group: TCP **22** + **8000** ([infra/ecs/security-group.md](../infra/ecs/security-group.md))
    - On instance: `/etc/continuum.env` from [infra/ecs/continuum.env.example](../infra/ecs/continuum.env.example)
    - Run container with volume `/app/data`, publish `8000:8000`
    - Optional: push to ACR ([infra/acr/push.md](../infra/acr/push.md)) then pull on ECS
-   - Optional ROS: create stack from [infra/ros/continuum-ecs.template.json](../infra/ros/continuum-ecs.template.json)
+   - Optional ROS: create stack from [infra/ros/continuum-ecs.template.json](../infra/ros/continuum-ecs.template.json) — replace `FREE_TRIAL_INSTANCE_TYPE`; do not use paid ROS defaults
 
-4. **Deploy (FC — alternative)**
-   - Push image to ACR; set image URI in [infra/fc/s.yaml](../infra/fc/s.yaml)
+4. **Deploy (FC — alternative, free CU / free trial only)**
+   - Push image to ACR; set image URI in [infra/fc/s.yaml](../infra/fc/s.yaml); abort if beyond free quota
    - `npm i -g @serverless-devs/s` → `s config add` → `export DASHSCOPE_API_KEY=...` → `s deploy` from `infra/fc/`
    - See [infra/fc/README.md](../infra/fc/README.md)
 
