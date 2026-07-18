@@ -1,0 +1,17 @@
+{
+  "workspace_id": "itsm_sla",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Note that Nexus SLA uptime is 99.9%.", "assistant": "Recorded."},
+      {"user": "Nexus SLA response is 4 hours.", "assistant": "Recorded."},
+      {"user": "Nexus account owner is Priya Sharma.", "assistant": "Noted."},
+      {"user": "Someone mentioned lunch plans for Friday.", "assistant": "Ok."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "What is the Nexus SLA and who owns the account?"},
+  "critical_facts": ["99.9%", "4 hours", "Priya"],
+  "stale_facts": [],
+  "budget_tokens": 400
+}

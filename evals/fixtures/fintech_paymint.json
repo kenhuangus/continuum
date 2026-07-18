@@ -1,0 +1,17 @@
+{
+  "workspace_id": "fintech_rate",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "We approved a 5% discount for Paymint.", "assistant": "5%."},
+      {"user": "We approved a 9% discount for Paymint through end of 2026.", "assistant": "Updated to 9%."},
+      {"user": "Paymint is a VIP customer.", "assistant": "VIP."},
+      {"user": "Paymint prefers slack communication.", "assistant": "Slack."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "Paymint current discount and preferences?"},
+  "critical_facts": ["9%", "vip", "slack"],
+  "stale_facts": ["5%"],
+  "budget_tokens": 350
+}

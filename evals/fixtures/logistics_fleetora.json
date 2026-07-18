@@ -1,0 +1,17 @@
+{
+  "workspace_id": "logistics_fleet",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Fleetora SLA response is 6 hours.", "assistant": "6h."},
+      {"user": "Fleetora account owner is Jordan Kim.", "assistant": "Owner."},
+      {"user": "Fleetora prefers phone communication.", "assistant": "Phone."},
+      {"user": "Unrelated: inventory count was completed yesterday.", "assistant": "Thanks."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "Fleetora owner SLA and contact preference?"},
+  "critical_facts": ["Jordan Kim", "6 hours", "phone"],
+  "stale_facts": [],
+  "budget_tokens": 400
+}

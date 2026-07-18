@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Continuum — MemoryAgent Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #eef2f0;
+      --surface: #f7faf8;
+      --border: #c5d0c9;
+      --text: #1a2b24;
+      --muted: #5a6e66;
+      --accent: #1f6b56;
+      --accent-dim: #d4ebe3;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+      background:
+        radial-gradient(ellipse at 12% -10%, rgba(31, 107, 86, 0.12) 0%, transparent 45%),
+        linear-gradient(165deg, #e8efe9 0%, #eef2f0 40%, #e4ebe8 100%);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+    header {
+      padding: 1.25rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      gap: 1rem;
+    }
+    header h1 {
+      font-family: "Fraunces", Georgia, serif;
+      font-weight: 600;
+      font-size: 1.5rem;
+      letter-spacing: -0.02em;
+      color: var(--accent);
+    }
+    header span { color: var(--muted); font-size: 0.875rem; }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 0;
+      height: calc(100vh - 65px);
+    }
+    .panel {
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .panel:last-child { border-right: none; }
+    .panel-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .controls {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      font-size: 0.875rem;
+    }
+    label { color: var(--muted); }
+    input[type="text"], input[type="number"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.35rem 0.5rem;
+      border-radius: 4px;
+      font: inherit;
+    }
+    input[type="range"] { width: 100px; accent-color: var(--accent); }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid var(--accent);
+      padding: 0.4rem 0.75rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font: inherit;
+      font-size: 0.8125rem;
+    }
+    button:hover { background: #185544; }
+    .chat-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .msg {
+      max-width: 90%;
+      padding: 0.65rem 0.85rem;
+      border-radius: 8px;
+      font-size: 0.9375rem;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+    }
+    .msg.assistant {
+      align-self: flex-start;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .msg .cite {
+      display: block;
+      margin-top: 0.4rem;
+      color: var(--accent);
+      font-size: 0.8rem;
+    }
+    .chat-input {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 0.5rem;
+    }
+    .chat-input input { flex: 1; }
+    .tabs { display: flex; gap: 0.25rem; }
+    .tab {
+      padding: 0.25rem 0.5rem;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+    }
+    .tab.active {
+      border-color: var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+    .memory-list, .pack-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem;
+    }
+    .memory-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.6rem 0.75rem;
+      margin-bottom: 0.5rem;
+      font-size: 0.8125rem;
+    }
+    .memory-card .meta {
+      color: var(--muted);
+      font-size: 0.7rem;
+      margin-bottom: 0.25rem;
+    }
+    .memory-card.superseded { opacity: 0.6; border-style: dashed; }
+    .memory-card.forgotten { opacity: 0.4; }
+    .pack-meta {
+      padding: 0.5rem 1rem;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-section { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .sidebar-section + .sidebar-section { border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Continuum</h1>
+    <span>MemoryAgent — Session A → B recall under budget</span>
+  </header>
+  <div class="layout">
+    <section class="panel">
+      <div class="controls">
+        <label>Workspace</label>
+        <input type="text" id="workspaceId" value="acme" />
+        <label>Session</label>
+        <input type="text" id="sessionId" value="session-a" readonly style="width:120px" />
+        <label>API Key</label>
+        <input type="password" id="apiKey" placeholder="optional" style="width:110px" autocomplete="off" />
+        <label>Budget</label>
+        <input type="range" id="budget" min="200" max="3000" value="800" />
+        <span id="budgetVal">800</span>
+        <button id="newSession">New Session</button>
+        <button id="forgetPass">Run Forgetting Pass</button>
+      </div>
+      <div class="chat-log" id="chatLog"></div>
+      <div class="chat-input">
+        <input type="text" id="messageInput" placeholder="Ask about Acme discount, VIP status, contact preference…" />
+        <button id="sendBtn">Send</button>
+      </div>
+    </section>
+    <aside class="panel">
+      <div class="sidebar-section" style="flex:1.2">
+        <div class="panel-header">
+          Memory Inspector
+          <div class="tabs">
+            <button class="tab active" data-status="active">Active</button>
+            <button class="tab" data-status="superseded">Superseded</button>
+            <button class="tab" data-status="forgotten">Forgotten</button>
+          </div>
+        </div>
+        <div class="memory-list" id="memoryList"></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="panel-header">Context Packer</div>
+        <div class="pack-meta" id="packMeta">No pack yet</div>
+        <div class="pack-list" id="packList"></div>
+      </div>
+    </aside>
+  </div>
+  <script>
+    const API = "http://127.0.0.1:8000";
+    let memoryFilter = "active";
+    let sending = false;
+
+    const $ = (id) => document.getElementById(id);
+
+    function sessionId() { return $("sessionId").value; }
+    function workspaceId() { return $("workspaceId").value.trim() || "acme"; }
+    function budget() { return parseInt($("budget").value, 10); }
+    function apiHeaders(extra) {
+      const headers = Object.assign({}, extra || {});
+      const key = ($("apiKey").value || "").trim();
+      if (key) headers["X-API-Key"] = key;
+      return headers;
+    }
+
+    function clearPackPanel() {
+      $("packMeta").textContent = "No pack yet";
+      $("packList").replaceChildren();
+    }
+
+    function renderMemoryCard(m, withStatus) {
+      const card = document.createElement("div");
+      card.className = "memory-card " + (m.status || "");
+      const meta = document.createElement("div");
+      meta.className = "meta";
+      const bits = [m.type, m.id.slice(0, 8)];
+      if (withStatus) bits.push(m.status);
+      meta.textContent = bits.join(" · ");
+      const body = document.createElement("div");
+      body.textContent = m.content;
+      card.appendChild(meta);
+      card.appendChild(body);
+      return card;
+    }
+
+    $("budget").addEventListener("input", () => {
+      $("budgetVal").textContent = $("budget").value;
+    });
+
+    $("workspaceId").addEventListener("change", () => {
+      refreshMemories();
+      clearPackPanel();
+    });
+    $("workspaceId").addEventListener("blur", () => {
+      refreshMemories();
+      clearPackPanel();
+    });
+
+    $("newSession").addEventListener("click", () => {
+      $("sessionId").value = "session-" + Date.now().toString(36);
+      appendMsg("system", "Started new session: " + $("sessionId").value);
+      refreshMemories();
+    });
+
+    $("forgetPass").addEventListener("click", async () => {
+      try {
+        const res = await fetch(`${API}/v1/forgetting/run?workspace_id=${encodeURIComponent(workspaceId())}`, {
+          method: "POST",
+          headers: apiHeaders(),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          appendMsg("system", `Error: ${res.status} ${data.detail || res.statusText}`);
+          return;
+        }
+        appendMsg("system", `Forgetting pass: ${data.count ?? 0} events`);
+        refreshMemories();
+      } catch (err) {
+        appendMsg("system", `Error: ${err.message || err}`);
+      }
+    });
+
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        memoryFilter = tab.dataset.status;
+        refreshMemories();
+      });
+    });
+
+    function appendMsg(role, text) {
+      const div = document.createElement("div");
+      div.className = "msg " + (role === "user" ? "user" : "assistant");
+      if (role === "system") {
+        div.style.alignSelf = "center";
+        div.style.fontSize = "0.8rem";
+        div.style.color = "var(--muted)";
+        div.style.background = "transparent";
+        div.style.border = "none";
+      }
+      div.textContent = text;
+      $("chatLog").appendChild(div);
+      $("chatLog").scrollTop = $("chatLog").scrollHeight;
+      return div;
+    }
+
+    function appendAssistantWithCitations(reply, citations) {
+      const div = document.createElement("div");
+      div.className = "msg assistant";
+      const text = document.createElement("div");
+      text.textContent = reply;
+      div.appendChild(text);
+      if (citations && citations.length) {
+        const cite = document.createElement("span");
+        cite.className = "cite";
+        cite.textContent = "Citations: " + citations.map((id) => "[" + id.slice(0, 8) + "]").join(" ");
+        div.appendChild(cite);
+      }
+      $("chatLog").appendChild(div);
+      $("chatLog").scrollTop = $("chatLog").scrollHeight;
+    }
+
+    async function refreshMemories() {
+      try {
+        const res = await fetch(
+          `${API}/v1/memories?workspace_id=${encodeURIComponent(workspaceId())}&status=${encodeURIComponent(memoryFilter)}`,
+          { headers: apiHeaders() }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          appendMsg("system", `Error loading memories: ${res.status} ${data.detail || res.statusText}`);
+          return;
+        }
+        const list = $("memoryList");
+        list.replaceChildren();
+        (data.memories || []).forEach((m) => list.appendChild(renderMemoryCard(m, true)));
+      } catch (err) {
+        appendMsg("system", `Error loading memories: ${err.message || err}`);
+      }
+    }
+
+    async function refreshPack(query) {
+      try {
+        const res = await fetch(
+          `${API}/v1/memories/pack_preview?workspace_id=${encodeURIComponent(workspaceId())}&query=${encodeURIComponent(query)}&budget=${budget()}&algorithm=type_quota`,
+          { headers: apiHeaders() }
+        );
+        const pack = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          appendMsg("system", `Error loading pack: ${res.status} ${pack.detail || res.statusText}`);
+          return;
+        }
+        let meta = `Algorithm: ${pack.algorithm} · Tokens: ${pack.token_estimate}/${pack.budget_tokens}`;
+        if (pack.explanations && pack.explanations.length) {
+          const preview = pack.explanations.slice(0, 2).join(" · ");
+          meta += ` · ${preview}`;
+          if (pack.explanations.length > 2) {
+            meta += ` (+${pack.explanations.length - 2} more)`;
+          }
+        }
+        $("packMeta").textContent = meta;
+        const list = $("packList");
+        list.replaceChildren();
+        (pack.memories || []).forEach((m) => list.appendChild(renderMemoryCard(m, false)));
+      } catch (err) {
+        appendMsg("system", `Error loading pack: ${err.message || err}`);
+      }
+    }
+
+    async function sendMessage() {
+      if (sending) return;
+      const msg = $("messageInput").value.trim();
+      if (!msg) return;
+      sending = true;
+      $("sendBtn").disabled = true;
+      $("messageInput").value = "";
+      appendMsg("user", msg);
+
+      try {
+        const res = await fetch(`${API}/v1/chat`, {
+          method: "POST",
+          headers: apiHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({
+            workspace_id: workspaceId(),
+            session_id: sessionId(),
+            message: msg,
+            memory_token_budget: budget(),
+            packer: "type_quota",
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          appendMsg("assistant", `Error: ${res.status} ${data.detail || res.statusText || "request failed"}`);
+          return;
+        }
+        if (!data.reply) {
+          appendMsg("assistant", `Error: empty reply from API`);
+          return;
+        }
+        appendAssistantWithCitations(data.reply, data.citations || []);
+        const written = (data.memories_written || []).length;
+        if (written) {
+          appendMsg("system", `Wrote ${written} memory(ies) from this turn`);
+        }
+        await refreshMemories();
+        await refreshPack(msg);
+      } catch (err) {
+        appendMsg("assistant", `Error: ${err.message || err}`);
+      } finally {
+        sending = false;
+        $("sendBtn").disabled = false;
+      }
+    }
+
+    $("sendBtn").addEventListener("click", sendMessage);
+    $("messageInput").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    refreshMemories();
+  </script>
+</body>
+</html>

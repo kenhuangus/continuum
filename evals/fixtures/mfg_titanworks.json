@@ -1,0 +1,18 @@
+{
+  "workspace_id": "manufacturing_oem",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Note that TitanWorks SLA uptime is 98%.", "assistant": "98%."},
+      {"user": "TitanWorks SLA response is 8 hours.", "assistant": "8h."},
+      {"user": "We approved a 4% discount for TitanWorks.", "assistant": "4%."},
+      {"user": "We approved a 10% discount for TitanWorks through end of 2026.", "assistant": "10%."},
+      {"user": "TitanWorks prefers slack communication.", "assistant": "Slack."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "TitanWorks discount SLA and contact?"},
+  "critical_facts": ["10%", "98%", "8 hours", "slack"],
+  "stale_facts": ["4%"],
+  "budget_tokens": 450
+}

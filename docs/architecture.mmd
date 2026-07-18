@@ -1,0 +1,32 @@
+flowchart TB
+    subgraph Client
+        Web[Demo Web UI]
+    end
+
+    subgraph API["FastAPI"]
+        Chat[POST /v1/chat]
+        Mem[GET /v1/memories]
+        Pack[GET pack_preview]
+    end
+
+    subgraph Agent
+        Qwen[QwenClient]
+        AgentLoop[ContinuumAgent]
+    end
+
+    subgraph MemoryCore
+        Extract[Extractor]
+        Store[(SQLite)]
+        Packer[Context Packer]
+        Forget[Forgetting]
+    end
+
+    Web --> API
+    Chat --> Packer
+    Chat --> AgentLoop
+    Chat --> Extract
+    AgentLoop --> Qwen
+    Packer --> Store
+    Extract --> Store
+    Forget --> Store
+    Mem --> Store

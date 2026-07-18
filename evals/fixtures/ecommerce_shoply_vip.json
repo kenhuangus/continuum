@@ -1,0 +1,17 @@
+{
+  "workspace_id": "ecom_vip",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Please note that Shoply Corp is a VIP customer for us.", "assistant": "VIP noted."},
+      {"user": "We approved a 20% discount for Shoply Corp through end of 2026.", "assistant": "20% recorded."},
+      {"user": "Shoply Corp prefers email communication.", "assistant": "Email preferred."},
+      {"user": "Also the warehouse moved to aisle B which is unrelated noise.", "assistant": "Ok."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "Is Shoply VIP, discount, and contact channel?"},
+  "critical_facts": ["vip", "20%", "email"],
+  "stale_facts": [],
+  "budget_tokens": 400
+}

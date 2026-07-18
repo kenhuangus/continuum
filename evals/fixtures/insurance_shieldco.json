@@ -1,0 +1,16 @@
+{
+  "workspace_id": "insurance_claims",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Note that ShieldCo SLA uptime is 99.5%.", "assistant": "99.5%."},
+      {"user": "ShieldCo prefers email communication.", "assistant": "Email."},
+      {"user": "ShieldCo is a VIP customer.", "assistant": "VIP."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "ShieldCo SLA and VIP contact?"},
+  "critical_facts": ["99.5%", "vip", "email"],
+  "stale_facts": [],
+  "budget_tokens": 350
+}

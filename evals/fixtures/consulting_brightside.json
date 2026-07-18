@@ -1,0 +1,17 @@
+{
+  "workspace_id": "consult_prefs",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Brightside Consulting prefers email communication.", "assistant": "Noted."},
+      {"user": "Brightside Consulting is a VIP customer.", "assistant": "Noted."},
+      {"user": "We approved a 8% discount for Brightside Consulting.", "assistant": "Done."},
+      {"user": "We approved a 11% discount for Brightside Consulting through end of 2026.", "assistant": "Updated."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "Brightside discount, VIP, contact?"},
+  "critical_facts": ["11%", "vip", "email"],
+  "stale_facts": ["8%"],
+  "budget_tokens": 400
+}

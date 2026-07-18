@@ -1,0 +1,17 @@
+{
+  "workspace_id": "security_soc",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Guardrail SLA response is 1 hours.", "assistant": "1h."},
+      {"user": "Guardrail SLA uptime is 99.99%.", "assistant": "99.99%."},
+      {"user": "Guardrail account owner is Riley Brooks.", "assistant": "Owner."},
+      {"user": "Guardrail is a VIP customer.", "assistant": "VIP."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "Guardrail SLA owner VIP?"},
+  "critical_facts": ["1 hours", "99.99%", "Riley Brooks", "vip"],
+  "stale_facts": [],
+  "budget_tokens": 400
+}

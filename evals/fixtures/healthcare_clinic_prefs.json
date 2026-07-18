@@ -1,0 +1,16 @@
+{
+  "workspace_id": "health_sched",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Note that Patient Care Clinic prefers phone communication.", "assistant": "Noted."},
+      {"user": "Patient Care Clinic SLA response is 2 hours.", "assistant": "Recorded."},
+      {"user": "Patient Care Clinic account owner is Dr Lee.", "assistant": "Ok."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "How should we contact Patient Care Clinic and what is SLA?"},
+  "critical_facts": ["phone", "2 hours"],
+  "stale_facts": [],
+  "budget_tokens": 350
+}

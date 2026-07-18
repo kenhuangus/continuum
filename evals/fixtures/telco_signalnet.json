@@ -1,0 +1,18 @@
+{
+  "workspace_id": "telco_support",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "SignalNet SLA response is 3 hours.", "assistant": "3h."},
+      {"user": "SignalNet is a VIP customer.", "assistant": "VIP."},
+      {"user": "SignalNet prefers phone communication.", "assistant": "Phone."},
+      {"user": "We approved a 6% discount for SignalNet.", "assistant": "6%."},
+      {"user": "We approved a 13% discount for SignalNet through end of 2026.", "assistant": "13%."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "SignalNet discount SLA VIP contact?"},
+  "critical_facts": ["13%", "3 hours", "vip", "phone"],
+  "stale_facts": ["6%"],
+  "budget_tokens": 450
+}

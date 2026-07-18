@@ -1,0 +1,16 @@
+{
+  "workspace_id": "legal_retain",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Northwind Legal prefers email communication.", "assistant": "Email."},
+      {"user": "Northwind Legal account owner is Sam Ortiz.", "assistant": "Owner recorded."},
+      {"user": "Northwind Legal is a VIP customer.", "assistant": "VIP."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "Who owns Northwind Legal and how to contact?"},
+  "critical_facts": ["Sam Ortiz", "email", "vip"],
+  "stale_facts": [],
+  "budget_tokens": 350
+}

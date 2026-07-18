@@ -1,0 +1,17 @@
+{
+  "workspace_id": "cloud_uptime",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Note that Skyline SLA uptime is 99.95%.", "assistant": "Recorded."},
+      {"user": "Skyline SLA response is 1 hours.", "assistant": "1h SLA."},
+      {"user": "Skyline prefers slack communication.", "assistant": "Slack."},
+      {"user": "We talked about a team offsite next month.", "assistant": "Sounds fun."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "Skyline SLA uptime and response time?"},
+  "critical_facts": ["99.95%", "1 hours"],
+  "stale_facts": [],
+  "budget_tokens": 300
+}

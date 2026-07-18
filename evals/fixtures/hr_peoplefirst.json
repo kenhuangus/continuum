@@ -1,0 +1,16 @@
+{
+  "workspace_id": "hr_payroll",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "PeopleFirst account owner is Alex Rivera.", "assistant": "Owner."},
+      {"user": "PeopleFirst prefers email communication.", "assistant": "Email."},
+      {"user": "We approved a 12% discount for PeopleFirst through end of 2026.", "assistant": "12%."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "PeopleFirst owner discount contact?"},
+  "critical_facts": ["Alex Rivera", "12%", "email"],
+  "stale_facts": [],
+  "budget_tokens": 350
+}

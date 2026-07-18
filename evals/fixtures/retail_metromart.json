@@ -1,0 +1,17 @@
+{
+  "workspace_id": "retail_chain",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Please note that MetroMart is a VIP customer for us.", "assistant": "VIP."},
+      {"user": "We approved a 7% discount for MetroMart.", "assistant": "7%."},
+      {"user": "We approved a 14% discount for MetroMart through end of 2026.", "assistant": "14%."},
+      {"user": "MetroMart prefers phone communication.", "assistant": "Phone."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "MetroMart discount VIP contact?"},
+  "critical_facts": ["14%", "vip", "phone"],
+  "stale_facts": ["7%"],
+  "budget_tokens": 400
+}

@@ -1,0 +1,33 @@
+{
+  "workspace_id": "acme",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "session-a",
+    "turns": [
+      {
+        "user": "Please note that Acme Corp is a VIP customer for us.",
+        "assistant": "Understood — I've noted Acme Corp as VIP."
+      },
+      {
+        "user": "We approved a 10% discount for Acme.",
+        "assistant": "Recorded 10%."
+      },
+      {
+        "user": "We approved a 12% discount for Acme through end of 2026.",
+        "assistant": "Recorded: 12% discount approved through end of 2026."
+      },
+      {
+        "user": "Acme prefers email communication for all account updates.",
+        "assistant": "Got it — email is the preferred contact channel for Acme."
+      }
+    ]
+  },
+  "session_b": {
+    "session_id": "session-b",
+    "query": "What discount does Acme get, are they VIP, and how should we contact them?"
+  },
+  "expected_signals": ["12%", "discount", "vip", "email"],
+  "critical_facts": ["12%", "vip", "email"],
+  "stale_facts": ["10%"],
+  "budget_tokens": 400
+}

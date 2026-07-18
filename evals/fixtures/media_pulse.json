@@ -1,0 +1,17 @@
+{
+  "workspace_id": "media_agency",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "We approved a 10% discount for Pulse Media.", "assistant": "10%."},
+      {"user": "We approved a 16% discount for Pulse Media through end of 2027.", "assistant": "16%."},
+      {"user": "Pulse Media is a VIP customer.", "assistant": "VIP."},
+      {"user": "Pulse Media prefers slack communication.", "assistant": "Slack."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "Pulse Media current discount VIP slack?"},
+  "critical_facts": ["16%", "vip", "slack"],
+  "stale_facts": ["10%"],
+  "budget_tokens": 350
+}

@@ -1,0 +1,16 @@
+{
+  "workspace_id": "nonprofit_grants",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "HopeFund prefers email communication.", "assistant": "Email."},
+      {"user": "HopeFund account owner is Maya Chen.", "assistant": "Owner."},
+      {"user": "Please note that HopeFund is a VIP customer for us.", "assistant": "VIP."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "HopeFund contact owner VIP?"},
+  "critical_facts": ["email", "Maya Chen", "vip"],
+  "stale_facts": [],
+  "budget_tokens": 350
+}

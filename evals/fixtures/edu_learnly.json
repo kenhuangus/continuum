@@ -1,0 +1,16 @@
+{
+  "workspace_id": "edu_lms",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Learnly Corp is a VIP customer.", "assistant": "VIP."},
+      {"user": "Learnly Corp prefers email communication.", "assistant": "Email."},
+      {"user": "We approved a 18% discount for Learnly Corp through end of 2026.", "assistant": "18%."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "Learnly discount and contact?"},
+  "critical_facts": ["18%", "email", "vip"],
+  "stale_facts": [],
+  "budget_tokens": 350
+}

@@ -1,0 +1,17 @@
+{
+  "workspace_id": "globex_pricing",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Note that Globex is a VIP customer.", "assistant": "Noted."},
+      {"user": "We approved a 15% discount for Globex through end of 2027.", "assistant": "Recorded."},
+      {"user": "Globex prefers slack communication.", "assistant": "Ok."},
+      {"user": "Random chat about the weather today being sunny.", "assistant": "Nice."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "Globex discount VIP and contact preference?"},
+  "critical_facts": ["15%", "vip", "slack"],
+  "stale_facts": [],
+  "budget_tokens": 350
+}

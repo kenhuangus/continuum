@@ -1,0 +1,17 @@
+{
+  "workspace_id": "travel_agency",
+  "org_id": "org_demo",
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {"user": "Wanderlust Travel is a VIP customer.", "assistant": "VIP."},
+      {"user": "Wanderlust Travel prefers email communication.", "assistant": "Email."},
+      {"user": "We approved a 22% discount for Wanderlust Travel through end of 2026.", "assistant": "22%."},
+      {"user": "Someone asked about the office coffee machine again.", "assistant": "Noted casually."}
+    ]
+  },
+  "session_b": {"session_id": "s-b", "query": "Wanderlust VIP discount email?"},
+  "critical_facts": ["vip", "22%", "email"],
+  "stale_facts": [],
+  "budget_tokens": 350
+}
