@@ -32,9 +32,14 @@ docs/screenshots/*.jpeg
 # Demo video pipeline outputs (keep .gitkeep only)
 demo_video/frames/
 demo_video/audio/
+demo_video/screencast/
 demo_video/*.mp4
+demo_video/*.webm
 demo_video/*.wav
 demo_video/*.mp3
 demo_video/STATUS.txt
+demo_video/CHAPTER_MARKERS.json
+demo_video/CHAPTERS.md
+demo_video/README.md
 !demo_video/.gitkeep
 

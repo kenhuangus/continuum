@@ -1,4 +1,4 @@
-"""Assemble demo_video/continuum_demo.mp4 from frames + per-beat audio via ffmpeg."""
+"""Assemble demo_video/continuum_demo.mp4 from frames (+ optional screencast) + audio."""
 from __future__ import annotations
 
 import json
@@ -27,7 +27,6 @@ def resolve_ffmpeg() -> str:
 
 
 def resolve_ffprobe(ffmpeg_exe: str) -> str | None:
-    # imageio-ffmpeg may only ship ffmpeg; try sibling / PATH.
     probe = shutil.which("ffprobe")
     if probe:
         return probe
@@ -62,7 +61,6 @@ def audio_duration_seconds(audio_path: Path, ffmpeg_exe: str, ffprobe_exe: str |
             except (json.JSONDecodeError, TypeError, ValueError):
                 pass
 
-    # Fallback: ffmpeg -i stderr parse
     proc = subprocess.run(
         [ffmpeg_exe, "-i", str(audio_path)],
         capture_output=True,
@@ -75,21 +73,177 @@ def audio_duration_seconds(audio_path: Path, ffmpeg_exe: str, ffprobe_exe: str |
     if m:
         h, mi, s = int(m.group(1)), int(m.group(2)), float(m.group(3))
         return h * 3600 + mi * 60 + s
-    # Last resort: word-count estimate from sibling narration not available — use 10s
     return 10.0
 
 
 def estimate_duration_from_text(text: str) -> float:
-    """Silent-slide duration: ~0.4s/word, floored at 8s (brief: 8–12s or word estimate)."""
     words = max(1, len(text.split()))
-    return max(8.0, words * 0.4)
+    return max(5.0, words * 0.22)
 
 
 def _run(cmd: list[str]) -> None:
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
-        err = (proc.stderr or proc.stdout or "")[-800:]
+        err = (proc.stderr or proc.stdout or "")[-1000:]
         raise RuntimeError(f"ffmpeg failed ({proc.returncode}): {err}")
+
+
+def _find_screencast(out_dir: Path) -> Path | None:
+    markers = out_dir / "CHAPTER_MARKERS.json"
+    if markers.is_file():
+        try:
+            data = json.loads(markers.read_text(encoding="utf-8"))
+            sc = data.get("screencast")
+            if sc and Path(sc).is_file() and Path(sc).stat().st_size > 1000:
+                return Path(sc)
+        except (json.JSONDecodeError, OSError):
+            pass
+    cand = out_dir / "screencast" / "tour.webm"
+    if cand.is_file() and cand.stat().st_size > 1000:
+        return cand
+    sc_dir = out_dir / "screencast"
+    if sc_dir.is_dir():
+        webms = sorted(sc_dir.glob("*.webm"), key=lambda p: p.stat().st_mtime, reverse=True)
+        for w in webms:
+            if w.stat().st_size > 1000:
+                return w
+    return None
+
+
+def _video_duration(path: Path, ffmpeg_exe: str, ffprobe_exe: str | None) -> float:
+    if ffprobe_exe:
+        proc = subprocess.run(
+            [
+                ffprobe_exe,
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                str(path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0 and proc.stdout:
+            try:
+                return float(json.loads(proc.stdout).get("format", {}).get("duration") or 0)
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass
+    return audio_duration_seconds(path, ffmpeg_exe, ffprobe_exe)
+
+
+def assemble_from_screencast(
+    beats: list[dict],
+    out_dir: Path,
+    screencast: Path,
+    *,
+    silent: bool = False,
+    output_name: str = "continuum_demo.mp4",
+) -> Path:
+    """Mux full screencast with concatenated chapter audio (pad/trim video to audio length)."""
+    ffmpeg = resolve_ffmpeg()
+    ffprobe = resolve_ffprobe(ffmpeg)
+    audio_dir = out_dir / "audio"
+    output = out_dir / output_name
+
+    with tempfile.TemporaryDirectory(prefix="continuum_sc_") as tmp:
+        tmp_path = Path(tmp)
+        concat_list = tmp_path / "audio_concat.txt"
+        lines: list[str] = []
+        for beat in beats:
+            ap = audio_dir / beat["audio"]
+            if silent or not ap.is_file():
+                dur = estimate_duration_from_text(beat["text"])
+                sil = tmp_path / f"sil_{beat['id']}.wav"
+                _run(
+                    [
+                        ffmpeg,
+                        "-y",
+                        "-f",
+                        "lavfi",
+                        "-i",
+                        "anullsrc=r=24000:cl=mono",
+                        "-t",
+                        f"{dur:.3f}",
+                        str(sil),
+                    ]
+                )
+                lines.append(f"file '{sil.resolve().as_posix()}'")
+            else:
+                lines.append(f"file '{ap.resolve().as_posix()}'")
+        concat_list.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        full_audio = tmp_path / "full_narration.wav"
+        _run(
+            [
+                ffmpeg,
+                "-y",
+                "-f",
+                "concat",
+                "-safe",
+                "0",
+                "-i",
+                str(concat_list),
+                "-c",
+                "copy",
+                str(full_audio),
+            ]
+        )
+
+        scaled = tmp_path / "scaled.mp4"
+        _run(
+            [
+                ffmpeg,
+                "-y",
+                "-i",
+                str(screencast),
+                "-vf",
+                "scale=1440:900:force_original_aspect_ratio=decrease,"
+                "pad=1440:900:(ow-iw)/2:(oh-ih)/2,fps=25,format=yuv420p",
+                "-an",
+                str(scaled),
+            ]
+        )
+
+        vid_dur = _video_duration(scaled, ffmpeg, ffprobe)
+        audio_dur = audio_duration_seconds(full_audio, ffmpeg, ffprobe)
+        if vid_dur > 0 and vid_dur < audio_dur - 0.15:
+            pad = audio_dur - vid_dur
+            padded = tmp_path / "padded.mp4"
+            _run(
+                [
+                    ffmpeg,
+                    "-y",
+                    "-i",
+                    str(scaled),
+                    "-vf",
+                    f"tpad=stop_mode=clone:stop_duration={pad:.3f}",
+                    "-an",
+                    str(padded),
+                ]
+            )
+            scaled = padded
+
+        _run(
+            [
+                ffmpeg,
+                "-y",
+                "-i",
+                str(scaled),
+                "-i",
+                str(full_audio),
+                "-c:v",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-c:a",
+                "aac",
+                "-shortest",
+                str(output),
+            ]
+        )
+
+    return output
 
 
 def assemble_video(
@@ -99,8 +253,20 @@ def assemble_video(
     silent: bool = False,
     ken_burns: bool = True,
     output_name: str = "continuum_demo.mp4",
+    prefer_screencast: bool = True,
 ) -> Path:
-    """Build mp4: one clip per beat (image + audio or timed still), then concat."""
+    """Build mp4: prefer screencast+narration; else per-beat stills + audio."""
+    if prefer_screencast:
+        sc = _find_screencast(out_dir)
+        if sc is not None:
+            print(f"  Assembling from screencast: {sc}")
+            try:
+                return assemble_from_screencast(
+                    beats, out_dir, sc, silent=silent, output_name=output_name
+                )
+            except Exception as exc:
+                print(f"  Screencast assemble failed ({exc}); falling back to stills")
+
     ffmpeg = resolve_ffmpeg()
     ffprobe = resolve_ffprobe(ffmpeg)
     frames_dir = out_dir / "frames"
@@ -116,13 +282,14 @@ def assemble_video(
             frame = frames_dir / beat["frame"]
             if not frame.is_file():
                 raise FileNotFoundError(f"Missing frame: {frame}")
+            if frame.stat().st_size < 1000:
+                raise RuntimeError(f"Frame too small (capture bug?): {frame}")
 
             clip = tmp_path / f"clip_{i:02d}.mp4"
             audio = audio_dir / beat["audio"]
 
             if silent or not audio.is_file():
                 dur = estimate_duration_from_text(beat["text"])
-                # Static still for silent / missing audio
                 _run(
                     [
                         ffmpeg,
@@ -152,12 +319,11 @@ def assemble_video(
             else:
                 dur = audio_duration_seconds(audio, ffmpeg, ffprobe)
                 if ken_burns:
-                    # Mild zoom: d = frames at 25fps for this beat's audio length.
-                    frames = max(25, int(dur * 25))
+                    frames_n = max(25, int(dur * 25))
                     vf = (
-                        "scale=2800:-1,"
+                        "scale=2880:-1,"
                         f"zoompan=z='min(zoom+0.0008,1.08)':x='iw/2-(iw/zoom/2)':"
-                        f"y='ih/2-(ih/zoom/2)':d={frames}:s=1400x900:fps=25,"
+                        f"y='ih/2-(ih/zoom/2)':d={frames_n}:s=1440x900:fps=25,"
                         "format=yuv420p"
                     )
                     _run(
