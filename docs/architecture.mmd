@@ -1,32 +1,78 @@
 flowchart TB
-    subgraph Client
-        Web[Demo Web UI]
+    noteTitle["Continuum — Track 1 MemoryAgent | Alibaba Cloud + Qwen Cloud"]
+
+    subgraph Clients["Clients"]
+        Web[User / Demo Web UI]
+        MCPCli[MCP stdio clients]
     end
 
-    subgraph API["FastAPI"]
+    subgraph Edge["API Gateway / edge — planned optional"]
+        GW[Auth, rate limit, X-Request-Id]
+    end
+
+    subgraph Deploy["Alibaba Cloud deploy plane — planned"]
+        Host[ECS / FC hosts Continuum API]
+    end
+
+    subgraph API["Continuum API — FastAPI apps/api"]
+        Health[GET /v1/health]
         Chat[POST /v1/chat]
-        Mem[GET /v1/memories]
-        Pack[GET pack_preview]
+        MemList[GET /v1/memories]
+        PackPrev[GET pack_preview]
+        ForgetEP[POST forget]
+        Obs[Structured logs + X-Request-Id]
     end
 
-    subgraph Agent
-        Qwen[QwenClient]
-        AgentLoop[ContinuumAgent]
+    subgraph AgentPkg["packages/agent"]
+        Agent[ContinuumAgent]
+        QwenCli[QwenClient]
     end
 
-    subgraph MemoryCore
-        Extract[Extractor]
-        Store[(SQLite)]
+    QwenCloud["Qwen Cloud<br/>dashscope-intl.aliyuncs.com"]
+
+    subgraph MemCore["Memory Core — packages/memory_core"]
+        Extract[Extractor + critic]
+        Hybrid[Hybrid Retrieve]
         Packer[Context Packer]
-        Forget[Forgetting]
+        ForgetEng[Forgetting Engine]
+        Super[Supersession]
+        Embed[Embeddings]
     end
 
+    subgraph StoreLayer["Store"]
+        SQLite[(SQLite shipped)]
+        Tablestore[(Tablestore planned)]
+    end
+
+    subgraph MCPSrv["MCP path"]
+        MCPServer[Continuum MCP server]
+        MemSvc[MemoryService / Store]
+    end
+
+    noteTitle --- Web
     Web --> API
-    Chat --> Packer
-    Chat --> AgentLoop
+    Web -.->|planned| GW
+    GW -.->|planned| API
+    Host -.->|planned| API
+
+    Chat --> Hybrid
+    Hybrid --> Embed
+    Hybrid --> Packer
+    Chat --> Agent
+    Agent --> QwenCli
+    QwenCli --> QwenCloud
     Chat --> Extract
-    AgentLoop --> Qwen
-    Packer --> Store
-    Extract --> Store
-    Forget --> Store
-    Mem --> Store
+    Extract --> Super
+    Extract --> SQLite
+    Super --> SQLite
+    Packer --> SQLite
+    ForgetEng --> SQLite
+    MemList --> SQLite
+    PackPrev --> Packer
+    ForgetEP --> ForgetEng
+    Health --- Obs
+    SQLite -.->|later| Tablestore
+
+    MCPCli --> MCPServer
+    MCPServer --> MemSvc
+    MemSvc --> SQLite

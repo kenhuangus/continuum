@@ -130,3 +130,38 @@ UI XSS: `apps/web/index.html` uses `textContent` for user/memory content (good p
 ## Bottom line
 
 Continuum Phase A is a **credible demo substrate** for Track-1 storytelling (typed memories, budget packing, supersession, citations). It is **not** yet a scientifically rigorous memory system relative to RAG/MemGPT/HippoRAG-class work, and it is **not** a multi-tenant Memory SaaS for all agents. Path forward is clear: retrieval + eval (P0), then tenancy/auth/MCP/store (P1), then packer/policy/billing differentiation (P2).
+
+---
+
+## Progress after upgrade (P0+P1)
+
+**Date:** 2026-07-18 (post-upgrade)
+
+### Closed
+
+| Item | Status |
+|------|--------|
+| Hybrid retrieve-then-pack | **Shipped** — sparse + local/API embeddings; `MemoryService.pack` packs candidates only |
+| Slot supersession + `supersedes: list[str]` | **Shipped** — `slots` on Memory; multi-id append on mark_superseded |
+| Domain-agnostic extractor + interrogative reject + LLM critic | **Shipped** — heuristic CapWords patterns; `critique_memories` when LLM available |
+| Eval suite ≥15 fixtures + baselines | **Shipped** — `evals/run_suite.py`, `evals/continuum_eval/` |
+| API key auth + rate limit + request id | **Shipped** — `CONTINUUM_API_KEYS` / `CONTINUUM_AUTH_DISABLED` / RPM |
+| Forget AuthZ (workspace scope) | **Shipped** — wrong workspace → 404 |
+| Real MCP stdio | **Shipped** — JSON-RPC loop; optional `mcp` SDK |
+| Idempotency-Key (chat/memories POST) | **Shipped** — in-memory TTL cache |
+| Injection sanitize on packed context | **Shipped** |
+| Packer knapsack_dp / mmr + as_of filter | **Shipped** (basic) |
+| Store protocol | **Shipped** — SQLite impl; Postgres stub/interface only |
+
+### Still open
+
+| Item | Gap |
+|------|-----|
+| Postgres / Tablestore prod store | Interface only; SQLite remains the working path |
+| OAuth / full multi-tenant SaaS | API keys only |
+| BM25 / vector DB index | In-process hybrid over workspace rows; not scaled |
+| NLI / faithfulness critic | Heuristic + optional LLM critic, not research-grade |
+| Billing meters, PITR, policy engine | Not started |
+| HITL forget | Env-gated flag only |
+
+**Updated verdict:** Scientifically **stronger** than Phase A (retrieval + eval + slots) but still short of literature-grade memory systems. SaaS **closer** (auth, AuthZ, MCP, quotas) but **not** production multi-tenant cloud yet.

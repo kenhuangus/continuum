@@ -1,0 +1,24 @@
+.git
+.venv
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+data/
+test_artifacts/
+.pytest_cache/
+docs/screenshots/
+.cascade_brief*
+.cascade_impl_prompt.txt
+node_modules/
+*.egg-info/
+continuum.egg-info/
+evals/
+tests/
+.coverage
+htmlcov/
+
+# Exclude markdown except README (referenced by pyproject.toml)
+*.md
+!README.md

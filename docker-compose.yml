@@ -1,0 +1,17 @@
+services:
+  continuum:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      CONTINUUM_AUTH_DISABLED: "1"
+      CONTINUUM_DB_PATH: /app/data/continuum.db
+    volumes:
+      - continuum-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  continuum-data:

@@ -35,14 +35,28 @@ agent = ContinuumAgent(memory_service, client=QwenClient())
 
 app = FastAPI(title="Continuum API", version="0.2.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+
+def _cors_origins() -> list[str]:
+    defaults = [
         "http://127.0.0.1:8000",
         "http://localhost:8000",
         "http://127.0.0.1:5500",
         "http://localhost:5500",
-    ],
+    ]
+    extra = os.environ.get("CONTINUUM_CORS_ORIGINS", "")
+    extras = [o.strip() for o in extra.split(",") if o.strip()]
+    seen = set(defaults)
+    merged = list(defaults)
+    for origin in extras:
+        if origin not in seen:
+            merged.append(origin)
+            seen.add(origin)
+    return merged
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

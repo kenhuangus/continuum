@@ -76,6 +76,14 @@ python evals/run_suite.py
 
 Phase A+ upgrade ships hybrid retrieve-then-pack, API keys, AuthZ on forget, real MCP stdio, and an offline eval suite. It is **not** a full multi-tenant cloud SaaS yet (SQLite primary; Postgres interface only). See [docs/MEMORY_SAAS_ASSESSMENT.md](docs/MEMORY_SAAS_ASSESSMENT.md).
 
+## Deploy (Alibaba Cloud)
+
+Containerize and deploy to Alibaba Cloud ECS for hackathon proof-of-deployment:
+
+- **Guide:** [infra/README.md](infra/README.md) (ECS + Docker primary path, optional ACR)
+- **Local smoke:** `docker compose up --build` or `.\infra\scripts\run-local.ps1`
+- **Proof checklist:** [docs/PROOF_OF_ALIBABA_DEPLOYMENT.md](docs/PROOF_OF_ALIBABA_DEPLOYMENT.md)
+
 ## License
 
 Apache-2.0 — see [LICENSE](LICENSE).

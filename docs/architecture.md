@@ -1,56 +1,101 @@
 # Continuum Architecture
 
-Continuum delivers a MemoryAgent vertical slice: **Session A writes memories → hybrid retrieve → pack under budget → agent cites memory IDs**.
+## Architecture diagram (Devpost)
+
+![Continuum architecture](architecture.png)
+
+Upload **`architecture.png`** on Devpost as the architecture image for Continuum.
+
+---
+
+Continuum is a **Track 1 MemoryAgent** vertical slice on **Alibaba Cloud** + **Qwen Cloud**: **Session A writes memories → hybrid retrieve → pack under budget → agent cites memory IDs**.
 
 ## Components
 
 ```mermaid
 flowchart TB
-    subgraph Client
-        Web[Demo Web UI]
-        MCP[MCP stdio clients]
+    noteTitle["Continuum — Track 1 MemoryAgent | Alibaba Cloud + Qwen Cloud"]
+
+    subgraph Clients["Clients"]
+        Web[User / Demo Web UI]
+        MCPCli[MCP stdio clients]
     end
 
-    subgraph API["apps/api — FastAPI"]
-        Auth[API key + rate limit]
-        Chat["POST /v1/chat"]
-        Memories["GET /v1/memories"]
-        PackPreview["GET /v1/memories/pack_preview"]
-        Forget["POST /v1/memories/{id}/forget"]
+    subgraph Edge["API Gateway / edge — planned optional"]
+        GW[Auth, rate limit, X-Request-Id]
     end
 
-    subgraph Agent["packages/agent"]
-        QwenClient[QwenClient]
-        Loop[ContinuumAgent]
+    subgraph Deploy["Alibaba Cloud deploy plane — planned"]
+        Host[ECS / FC hosts Continuum API]
     end
 
-    subgraph MemoryCore["packages/memory_core"]
-        Extractor[Extractor + critic]
-        Store[(MemoryStoreProtocol / SQLite)]
-        Retrieve[Hybrid retrieve]
+    subgraph API["Continuum API — FastAPI apps/api"]
+        Health[GET /v1/health]
+        Chat[POST /v1/chat]
+        MemList[GET /v1/memories]
+        PackPrev[GET pack_preview]
+        ForgetEP[POST forget]
+        Obs[Structured logs + X-Request-Id]
+    end
+
+    subgraph AgentPkg["packages/agent"]
+        Agent[ContinuumAgent]
+        QwenCli[QwenClient]
+    end
+
+    QwenCloud["Qwen Cloud<br/>dashscope-intl.aliyuncs.com"]
+
+    subgraph MemCore["Memory Core — packages/memory_core"]
+        Extract[Extractor + critic]
+        Hybrid[Hybrid Retrieve]
         Packer[Context Packer]
         ForgetEng[Forgetting Engine]
-        Super[Slot supersession]
-        Embed[Embeddings local/API]
+        Super[Supersession]
+        Embed[Embeddings]
     end
 
-    Web --> Auth
-    MCP --> Store
-    Auth --> Chat
-    Chat --> Retrieve
-    Retrieve --> Embed
-    Retrieve --> Packer
-    Chat --> Loop
-    Chat --> Extractor
-    Loop --> QwenClient
-    Packer --> Store
-    Extractor --> Store
-    Extractor --> Super
-    Super --> Store
-    ForgetEng --> Store
-    Memories --> Store
-    Forget --> Store
+    subgraph StoreLayer["Store"]
+        SQLite[(SQLite shipped)]
+        Tablestore[(Tablestore planned)]
+    end
+
+    subgraph MCPSrv["MCP path"]
+        MCPServer[Continuum MCP server]
+        MemSvc[MemoryService / Store]
+    end
+
+    noteTitle --- Web
+    Web --> API
+    Web -.->|planned| GW
+    GW -.->|planned| API
+    Host -.->|planned| API
+
+    Chat --> Hybrid
+    Hybrid --> Embed
+    Hybrid --> Packer
+    Chat --> Agent
+    Agent --> QwenCli
+    QwenCli --> QwenCloud
+    Chat --> Extract
+    Extract --> Super
+    Extract --> SQLite
+    Super --> SQLite
+    Packer --> SQLite
+    ForgetEng --> SQLite
+    MemList --> SQLite
+    PackPrev --> Packer
+    ForgetEP --> ForgetEng
+    Health --- Obs
+    SQLite -.->|later| Tablestore
+
+    MCPCli --> MCPServer
+    MCPServer --> MemSvc
+    MemSvc --> SQLite
 ```
+
+**Shipped path:** Demo Web UI → Continuum API (auth/rate limit/X-Request-Id in-app) → Memory Core (retrieve/pack/extract) → ContinuumAgent → QwenClient → Qwen Cloud (DashScope compatible-mode: `dashscope-intl.aliyuncs.com`); store is SQLite. MCP stdio clients talk to the Continuum MCP server → MemoryService/Store.
+
+**Planned / later (dashed):** optional API Gateway/edge, Alibaba Cloud ECS/FC hosting, Tablestore.
 
 ## Data flow (chat)
 
@@ -70,7 +115,7 @@ flowchart TB
 
 - **Shipped:** SQLite via `MemoryStore` (`CONTINUUM_DB_PATH`).
 - **Interface:** `MemoryStoreProtocol` + `create_store()` in `store_base.py`.
-- **Later:** Postgres when `DATABASE_URL` starts with `postgres` (optional extra; not fully shipped).
+- **Later:** Postgres when `DATABASE_URL` starts with `postgres` (optional extra; not fully shipped). Tablestore on Alibaba Cloud is planned for cloud scale.
 
 ## MCP
 
@@ -82,4 +127,4 @@ Offline suite in `evals/` with ≥15 fixtures and baselines (`no_memory`, `full_
 
 ## Still later
 
-Alibaba Cloud deployment (Tablestore, Redis, FC), full Postgres ops, stronger NLI supersession, production multi-tenant SaaS hardening.
+Alibaba Cloud deployment (Tablestore, Redis, FC/ECS), optional API Gateway, full Postgres ops, stronger NLI supersession, production multi-tenant SaaS hardening.
