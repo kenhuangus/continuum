@@ -44,6 +44,22 @@ _STOP_ENTITIES = {
 
 _ENTITY_TRAILING_NOISE = {"sla", "vip", "uptime", "response", "discount", "owner"}
 
+_OBSOLESCENCE_KEYWORDS = (
+    "obsolete",
+    "outdated",
+    "no longer",
+    "superseded",
+    "was floated",
+    "earlier we floated",
+    "earlier we had floated",
+)
+
+
+def has_obsolescence_cue(text: str) -> bool:
+    """Detect obsolescence/negation language (design notes §1)."""
+    t = (text or "").lower()
+    return any(kw in t for kw in _OBSOLESCENCE_KEYWORDS)
+
 
 def _clean_entity_name(name: str) -> str:
     parts = [p for p in name.split() if p.lower() not in _ENTITY_TRAILING_NOISE]
@@ -172,6 +188,42 @@ def extract_heuristic(
 
     entity = _primary_entity(text)
     aliases = _entity_aliases(entity) if entity else []
+
+    # Obsolescence cue: a value is being retracted, not (re-)decided. Never write
+    # the stale value as a fresh active decision/preference/semantic fact — write
+    # a non-numeric marker memory instead so supersession can retire any existing
+    # active memory that still carries the stale slot value, without the marker
+    # itself ever winning as the active fact for that slot (see supersession.py).
+    if not is_question and has_obsolescence_cue(text):
+        ent_name = entity or "Customer"
+        ents = aliases or _entity_aliases(ent_name)
+        obs_slots = extract_slots(text, ents)
+        obs_slots.pop("entity", None)
+        if obs_slots:
+            for slot_key, stale_value in obs_slots.items():
+                label = slot_key.replace("_", " ")
+                add(
+                    _new_memory(
+                        org_id=org_id,
+                        workspace_id=workspace_id,
+                        mem_type=MemoryType.EPISODIC,
+                        content=(
+                            f"A previous {label} value for {ent_name} is now "
+                            "obsolete and no longer applies."
+                        ),
+                        entities=ents,
+                        source=source,
+                        confidence=0.7,
+                        slots={
+                            "entity": ents[0] if ents else ent_name,
+                            "obsolete_slot": slot_key,
+                            "obsolete_value": stale_value,
+                        },
+                    )
+                )
+            return memories
+        # Obsolescence language without an extractable slot value: fall through
+        # to normal extraction (nothing stale to suppress).
 
     remember_match = re.search(
         r"(?i)(?:remember|please remember|note that)[:\s]+(.+)",

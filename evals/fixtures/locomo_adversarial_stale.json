@@ -1,0 +1,62 @@
+{
+  "workspace_id": "locomo_vertex_adversarial",
+  "org_id": "org_demo",
+  "budget_tokens": 300,
+  "critical_facts": ["99.5%", "phone", "2 hours"],
+  "stale_facts": ["4 hours"],
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {
+        "user": "Vertex SLA uptime is 99.5%.",
+        "assistant": "Recorded Vertex SLA uptime."
+      },
+      {
+        "user": "Vertex prefers phone communication.",
+        "assistant": "Recorded Vertex contact preference."
+      },
+      {
+        "user": "Vertex SLA response is 2 hours.",
+        "assistant": "Recorded Vertex SLA response time."
+      },
+      {
+        "user": "Earlier we had floated an SLA response of 4 hours for Vertex but that is obsolete.",
+        "assistant": "Understood, the 4 hour figure is outdated."
+      }
+    ]
+  },
+  "session_b": {
+    "session_id": "s-b",
+    "query": "What is Vertex's current SLA uptime, contact preference, and SLA response time?"
+  },
+  "seed_memories": [
+    {
+      "id": "vertex_noise_01",
+      "type": "episodic",
+      "content": "Vertex SLA response contact preference noise: cafeteria newsletter lounge parking holiday party tickets travel hotel rates unrelated chatter with no numeric figures at all.",
+      "entities": ["Vertex"],
+      "utility": 0.98
+    },
+    {
+      "id": "vertex_noise_02",
+      "type": "episodic",
+      "content": "Distractor Vertex SLA response contact preference discussion covering cafeteria lounge parking holiday coffee swag travel printer badge support confusion only.",
+      "entities": ["Vertex"],
+      "utility": 0.97
+    },
+    {
+      "id": "vertex_noise_03",
+      "type": "episodic",
+      "content": "More Vertex SLA response contact preference chatter about cafeteria newsletter lounge parking holiday seating drink tickets bookstore coupons and nothing else.",
+      "entities": ["Vertex"],
+      "utility": 0.96
+    },
+    {
+      "id": "vertex_noise_04",
+      "type": "episodic",
+      "content": "Keyword trap Vertex SLA response contact preference filler with weather cafeteria lounge parking holiday coffee swag travel signature noise only.",
+      "entities": ["Vertex"],
+      "utility": 0.95
+    }
+  ]
+}

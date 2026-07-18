@@ -8,13 +8,21 @@ from continuum_memory.schemas import ForgetAuditEvent, Memory, MemoryStatus
 
 @runtime_checkable
 class MemoryStoreProtocol(Protocol):
-    """Store interface used by MemoryService (SQLite today; Postgres optional)."""
+    """Store interface used by MemoryService (SQLite today; Postgres optional).
+
+    ``org_id`` kwargs are optional and default to ``None`` (no org filter) for
+    backward compatibility with existing single-tenant callers/tests. When a
+    caller passes ``org_id``, implementations MUST scope results to that org
+    in addition to ``workspace_id`` — tenants may reuse the same
+    ``workspace_id`` string, so ``workspace_id`` alone is not a safe isolation
+    boundary in multi-tenant deployments.
+    """
 
     def remember(self, memory: Memory) -> Memory: ...
 
     def upsert(self, memory: Memory) -> Memory: ...
 
-    def get(self, memory_id: str) -> Memory | None: ...
+    def get(self, memory_id: str, *, org_id: str | None = None) -> Memory | None: ...
 
     def list_by_workspace(
         self,
@@ -22,6 +30,7 @@ class MemoryStoreProtocol(Protocol):
         status: MemoryStatus | None = None,
         *,
         as_of: datetime | None = None,
+        org_id: str | None = None,
     ) -> list[Memory]: ...
 
     def search(
@@ -32,6 +41,7 @@ class MemoryStoreProtocol(Protocol):
         status: MemoryStatus = MemoryStatus.ACTIVE,
         *,
         as_of: datetime | None = None,
+        org_id: str | None = None,
     ) -> list[Memory]: ...
 
     def mark_superseded(self, old_id: str, new_id: str) -> None: ...
@@ -42,6 +52,7 @@ class MemoryStoreProtocol(Protocol):
         reason: str = "manual",
         *,
         workspace_id: str | None = None,
+        org_id: str | None = None,
     ) -> ForgetAuditEvent | None: ...
 
     def log_forget_event(self, event: ForgetAuditEvent) -> None: ...

@@ -21,9 +21,11 @@ def _dt_to_str(dt: datetime | None) -> str | None:
     return dt.isoformat()
 
 
-def _str_to_dt(s: str | None) -> datetime | None:
+def _str_to_dt(s: str | datetime | None) -> datetime | None:
     if s is None:
         return None
+    if isinstance(s, datetime):
+        return s
     return datetime.fromisoformat(s)
 
 
@@ -66,6 +68,48 @@ def _parse_supersedes(raw: Any) -> list[str]:
 
 def _serialize_supersedes(ids: list[str] | None) -> str:
     return json.dumps(list(ids or []))
+
+
+def row_to_memory(row: Any) -> Memory:
+    """Convert any mapping-like DB row (sqlite3.Row or SQLAlchemy RowMapping) to a Memory.
+
+    Shared by `MemoryStore` (SQLite) and `PostgresMemoryStore` (SQLAlchemy) so both
+    backends stay in lockstep on (de)serialization of JSON-ish columns.
+    """
+    keys = row.keys()
+    slots_raw = row["slots"] if "slots" in keys else "{}"
+    importance = row["importance"] if "importance" in keys else None
+    entities_raw = row["entities"]
+    entities = json.loads(entities_raw) if isinstance(entities_raw, str) else list(entities_raw or [])
+    source_raw = row["source"]
+    source = json.loads(source_raw) if isinstance(source_raw, str) else dict(source_raw or {})
+    policy_tags_raw = row["policy_tags"]
+    policy_tags = (
+        json.loads(policy_tags_raw) if isinstance(policy_tags_raw, str) else list(policy_tags_raw or [])
+    )
+    slots = json.loads(slots_raw) if isinstance(slots_raw, str) else dict(slots_raw or {})
+    return Memory(
+        id=row["id"],
+        org_id=row["org_id"],
+        workspace_id=row["workspace_id"],
+        type=MemoryType(row["type"]),
+        content=row["content"],
+        entities=entities,
+        confidence=row["confidence"],
+        utility=row["utility"],
+        importance=importance,
+        status=MemoryStatus(row["status"]),
+        effective_from=_str_to_dt(row["effective_from"]),
+        effective_to=_str_to_dt(row["effective_to"]),
+        created_at=_str_to_dt(row["created_at"]) or _utcnow(),
+        last_accessed_at=_str_to_dt(row["last_accessed_at"]) or _utcnow(),
+        source=source,
+        superseded_by=row["superseded_by"],
+        supersedes=_parse_supersedes(row["supersedes"]),
+        slots=slots,
+        policy_tags=policy_tags,
+        version=row["version"],
+    )
 
 
 class MemoryStore:
@@ -167,31 +211,7 @@ class MemoryStore:
             )
 
     def _row_to_memory(self, row: sqlite3.Row) -> Memory:
-        keys = row.keys()
-        slots_raw = row["slots"] if "slots" in keys else "{}"
-        importance = row["importance"] if "importance" in keys else None
-        return Memory(
-            id=row["id"],
-            org_id=row["org_id"],
-            workspace_id=row["workspace_id"],
-            type=MemoryType(row["type"]),
-            content=row["content"],
-            entities=json.loads(row["entities"]),
-            confidence=row["confidence"],
-            utility=row["utility"],
-            importance=importance,
-            status=MemoryStatus(row["status"]),
-            effective_from=_str_to_dt(row["effective_from"]),
-            effective_to=_str_to_dt(row["effective_to"]),
-            created_at=_str_to_dt(row["created_at"]) or _utcnow(),
-            last_accessed_at=_str_to_dt(row["last_accessed_at"]) or _utcnow(),
-            source=json.loads(row["source"]),
-            superseded_by=row["superseded_by"],
-            supersedes=_parse_supersedes(row["supersedes"]),
-            slots=json.loads(slots_raw or "{}"),
-            policy_tags=json.loads(row["policy_tags"]),
-            version=row["version"],
-        )
+        return row_to_memory(row)
 
     def _effective_at(self, mem: Memory, as_of: datetime | None) -> bool:
         if as_of is None:
@@ -203,7 +223,9 @@ class MemoryStore:
         return True
 
     def remember(self, memory: Memory) -> Memory:
-        active = self.list_by_workspace(memory.workspace_id, MemoryStatus.ACTIVE)
+        active = self.list_by_workspace(
+            memory.workspace_id, MemoryStatus.ACTIVE, org_id=memory.org_id
+        )
         norm = _normalize_content(memory.content)
         tokens = _word_tokens(memory.content)
         for existing in active:
@@ -252,12 +274,17 @@ class MemoryStore:
     def upsert(self, memory: Memory) -> Memory:
         return self.remember(memory)
 
-    def get(self, memory_id: str) -> Memory | None:
+    def get(self, memory_id: str, *, org_id: str | None = None) -> Memory | None:
         with self._conn() as conn:
             row = conn.execute(
                 "SELECT * FROM memories WHERE id = ?", (memory_id,)
             ).fetchone()
-        return self._row_to_memory(row) if row else None
+        if not row:
+            return None
+        mem = self._row_to_memory(row)
+        if org_id is not None and mem.org_id != org_id:
+            return None
+        return mem
 
     def list_by_workspace(
         self,
@@ -265,19 +292,22 @@ class MemoryStore:
         status: MemoryStatus | None = None,
         *,
         as_of: datetime | None = None,
+        org_id: str | None = None,
     ) -> list[Memory]:
         with self._conn() as conn:
+            clauses = ["workspace_id = ?"]
+            params: list[Any] = [workspace_id]
             if status:
-                rows = conn.execute(
-                    "SELECT * FROM memories WHERE workspace_id = ? AND status = ? "
-                    "ORDER BY created_at DESC",
-                    (workspace_id, status.value),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM memories WHERE workspace_id = ? ORDER BY created_at DESC",
-                    (workspace_id,),
-                ).fetchall()
+                clauses.append("status = ?")
+                params.append(status.value)
+            if org_id is not None:
+                clauses.append("org_id = ?")
+                params.append(org_id)
+            where = " AND ".join(clauses)
+            rows = conn.execute(
+                f"SELECT * FROM memories WHERE {where} ORDER BY created_at DESC",
+                params,
+            ).fetchall()
         memories = [self._row_to_memory(r) for r in rows]
         if as_of is not None:
             memories = [m for m in memories if self._effective_at(m, as_of)]
@@ -291,8 +321,11 @@ class MemoryStore:
         status: MemoryStatus = MemoryStatus.ACTIVE,
         *,
         as_of: datetime | None = None,
+        org_id: str | None = None,
     ) -> list[Memory]:
-        memories = self.list_by_workspace(workspace_id, status, as_of=as_of)
+        memories = self.list_by_workspace(
+            workspace_id, status, as_of=as_of, org_id=org_id
+        )
         results: list[Memory] = []
         q_lower = query.lower()
         entity_set = {e.lower() for e in (entities or [])}
@@ -336,11 +369,14 @@ class MemoryStore:
         reason: str = "manual",
         *,
         workspace_id: str | None = None,
+        org_id: str | None = None,
     ) -> ForgetAuditEvent | None:
         mem = self.get(memory_id)
         if not mem:
             return None
         if workspace_id is not None and mem.workspace_id != workspace_id:
+            return None
+        if org_id is not None and mem.org_id != org_id:
             return None
         with self._conn() as conn:
             conn.execute(

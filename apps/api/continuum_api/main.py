@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import time
@@ -72,9 +73,55 @@ def _auth_disabled() -> bool:
     return False
 
 
+def _api_key_org_map() -> dict[str, str]:
+    """Parse CONTINUUM_API_KEY_MAP='{"key_a":"org_a","key_b":"org_b"}'."""
+    raw = os.environ.get("CONTINUUM_API_KEY_MAP", "")
+    if not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning("Invalid CONTINUUM_API_KEY_MAP JSON; ignoring")
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return {str(k): str(v) for k, v in parsed.items()}
+
+
 def _valid_api_keys() -> set[str]:
     raw = os.environ.get("CONTINUUM_API_KEYS", "")
-    return {k.strip() for k in raw.split(",") if k.strip()}
+    keys = {k.strip() for k in raw.split(",") if k.strip()}
+    keys.update(_api_key_org_map().keys())
+    return keys
+
+
+def _resolve_org_id(api_key: str | None) -> str:
+    """Resolve org for an authenticated key: KEY_MAP entry, else default org_demo."""
+    if api_key:
+        org = _api_key_org_map().get(api_key)
+        if org:
+            return org
+    return "org_demo"
+
+
+def _resolve_request_org(request: Request, body_org_id: str | None) -> str:
+    """Resolve the effective org_id for a request.
+
+    When auth is enabled, `request.state.org_id` (set by AuthRateLimitMiddleware
+    from the caller's API key) is authoritative. An explicit `org_id` in the
+    request body/query is only allowed if it matches — otherwise 403. When auth
+    is disabled (local/demo mode), the caller-provided org_id (or "org_demo")
+    is trusted as-is, preserving pre-multi-tenant behavior.
+    """
+    resolved = getattr(request.state, "org_id", None)
+    if resolved is not None:
+        if body_org_id is not None and body_org_id != resolved:
+            raise HTTPException(
+                status_code=403,
+                detail="org_id does not match the organization bound to this API key",
+            )
+        return resolved
+    return body_org_id or "org_demo"
 
 
 def _extract_api_key(request: Request) -> str | None:
@@ -136,6 +183,9 @@ class AuthRateLimitMiddleware(BaseHTTPMiddleware):
                 return JSONResponse(
                     status_code=401, content={"detail": "Invalid or missing API key"}
                 )
+            request.state.org_id = _resolve_org_id(api_key)
+        else:
+            request.state.org_id = None
 
         bucket = api_key or (request.client.host if request.client else "anon")
         rpm = _rate_limit_rpm()
@@ -169,6 +219,7 @@ class RememberRequest(BaseModel):
 
 
 class ConsolidateRequest(BaseModel):
+    org_id: str | None = None
     workspace_id: str
     max_groups: int = 20
 
@@ -204,11 +255,14 @@ def chat(req: ChatRequest, request: Request) -> dict:
     if cached is not None:
         return cached
 
+    org = _resolve_request_org(request, req.org_id)
+
     pack = memory_service.pack(
         req.workspace_id,
         req.message,
         req.memory_token_budget,
         req.packer,
+        org_id=org,
     )
     reply, citations = agent.reply(req.workspace_id, req.session_id, req.message, pack)
     written = memory_service.ingest_turn(
@@ -216,7 +270,7 @@ def chat(req: ChatRequest, request: Request) -> dict:
         req.session_id,
         req.message,
         reply,
-        org_id=req.org_id,
+        org_id=org,
     )
     result = {
         "reply": reply,
@@ -237,21 +291,24 @@ def chat(req: ChatRequest, request: Request) -> dict:
 
 @app.get("/v1/memories")
 def list_memories(
+    request: Request,
     workspace_id: str = Query(...),
     status: str | None = Query(None),
     q: str | None = Query(None),
     as_of: str | None = Query(None),
+    org_id: str | None = Query(None),
 ) -> dict:
+    org = _resolve_request_org(request, org_id)
     as_of_dt = None
     if as_of:
         from datetime import datetime
 
         as_of_dt = datetime.fromisoformat(as_of)
     if q:
-        items = memory_service.search(workspace_id, q)
+        items = memory_service.search(workspace_id, q, org_id=org)
     else:
         st = MemoryStatus(status) if status else None
-        items = memory_service.list_memories(workspace_id, st, as_of=as_of_dt)
+        items = memory_service.list_memories(workspace_id, st, as_of=as_of_dt, org_id=org)
     return {"memories": [m.model_dump(mode="json") for m in items]}
 
 
@@ -269,9 +326,10 @@ def create_memory(req: RememberRequest, request: Request) -> dict:
     if idem:
         mem_id = str(uuid.UUID(hashlib.sha256(idem.encode()).hexdigest()[:32]))
 
+    org = _resolve_request_org(request, req.org_id)
     mem = Memory(
         id=mem_id,
-        org_id=req.org_id,
+        org_id=org,
         workspace_id=req.workspace_id,
         type=req.type,
         content=req.content,
@@ -290,24 +348,28 @@ def create_memory(req: RememberRequest, request: Request) -> dict:
 
 @app.get("/v1/memories/pack_preview")
 def pack_preview(
+    request: Request,
     workspace_id: str = Query(...),
     query: str = Query(""),
     budget: int = Query(1500),
     algorithm: str = Query("type_quota"),
     as_of: str | None = Query(None),
+    org_id: str | None = Query(None),
 ) -> dict:
+    org = _resolve_request_org(request, org_id)
     as_of_dt = None
     if as_of:
         from datetime import datetime
 
         as_of_dt = datetime.fromisoformat(as_of)
-    pack = memory_service.pack(workspace_id, query, budget, algorithm, as_of=as_of_dt)
+    pack = memory_service.pack(workspace_id, query, budget, algorithm, as_of=as_of_dt, org_id=org)
     return pack.model_dump(mode="json")
 
 
 @app.post("/v1/memories/consolidate")
-def consolidate_memories(req: ConsolidateRequest) -> dict:
-    written = memory_service.consolidate(req.workspace_id, max_groups=req.max_groups)
+def consolidate_memories(req: ConsolidateRequest, request: Request) -> dict:
+    org = _resolve_request_org(request, req.org_id)
+    written = memory_service.consolidate(req.workspace_id, max_groups=req.max_groups, org_id=org)
     return {
         "written": [m.model_dump(mode="json") for m in written],
         "count": len(written),
@@ -315,8 +377,14 @@ def consolidate_memories(req: ConsolidateRequest) -> dict:
 
 
 @app.get("/v1/memories/{memory_id}")
-def get_memory(memory_id: str, workspace_id: str = Query(...)) -> dict:
-    mem = memory_service.get(memory_id, workspace_id=workspace_id)
+def get_memory(
+    memory_id: str,
+    request: Request,
+    workspace_id: str = Query(...),
+    org_id: str | None = Query(None),
+) -> dict:
+    org = _resolve_request_org(request, org_id)
+    mem = memory_service.get(memory_id, workspace_id=workspace_id, org_id=org)
     if not mem:
         raise HTTPException(status_code=404, detail="Memory not found")
     return mem.model_dump(mode="json")
@@ -324,10 +392,13 @@ def get_memory(memory_id: str, workspace_id: str = Query(...)) -> dict:
 @app.post("/v1/memories/{memory_id}/forget")
 def forget_memory(
     memory_id: str,
+    request: Request,
     workspace_id: str = Query(...),
     reason: str = Query("manual"),
+    org_id: str | None = Query(None),
 ) -> dict:
-    result = memory_service.forget(memory_id, reason=reason, workspace_id=workspace_id)
+    org = _resolve_request_org(request, org_id)
+    result = memory_service.forget(memory_id, reason=reason, workspace_id=workspace_id, org_id=org)
     if not result.get("forgotten"):
         if result.get("hitl_required"):
             return result
@@ -336,8 +407,13 @@ def forget_memory(
 
 
 @app.post("/v1/forgetting/run")
-def run_forgetting(workspace_id: str = Query(...)) -> dict:
-    events = memory_service.run_forgetting_pass(workspace_id)
+def run_forgetting(
+    request: Request,
+    workspace_id: str = Query(...),
+    org_id: str | None = Query(None),
+) -> dict:
+    org = _resolve_request_org(request, org_id)
+    events = memory_service.run_forgetting_pass(workspace_id, org_id=org)
     return {"events": events, "count": len(events)}
 
 

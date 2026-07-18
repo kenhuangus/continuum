@@ -142,10 +142,40 @@ def _conflicts(a: Memory, b: Memory) -> bool:
     return True
 
 
+def _obsolescence_marker(memory: Memory) -> tuple[str, Any] | None:
+    """If memory is an obsolescence marker (see extractor.py), return (slot, value)."""
+    slots = memory.slots or {}
+    slot_key = slots.get("obsolete_slot")
+    if slot_key is None or "obsolete_value" not in slots:
+        return None
+    return str(slot_key), slots["obsolete_value"]
+
+
 def apply_supersession(store, new_memories: list[Memory]) -> list[tuple[str, str]]:
     """Mark conflicting active memories as superseded. Returns (old_id, new_id) pairs."""
     pairs: list[tuple[str, str]] = []
     for new_mem in new_memories:
+        marker = _obsolescence_marker(new_mem)
+        if marker is not None:
+            # Obsolescence marker: retire any ACTIVE memory that still carries the
+            # stale slot value, but the marker itself never becomes a winning fact
+            # for that slot (see extractor.has_obsolescence_cue).
+            slot_key, stale_value = marker
+            new_keys = _entity_keys(new_mem)
+            existing = store.list_by_workspace(new_mem.workspace_id, MemoryStatus.ACTIVE)
+            for old in existing:
+                if old.id == new_mem.id:
+                    continue
+                if not old.slots:
+                    old.slots = extract_slots(old.content, old.entities)
+                if old.slots.get(slot_key) != stale_value:
+                    continue
+                old_keys = _entity_keys(old)
+                if new_keys and old_keys and not new_keys.intersection(old_keys):
+                    continue
+                store.mark_superseded(old.id, new_mem.id)
+                pairs.append((old.id, new_mem.id))
+            continue
         if new_mem.type not in (MemoryType.SEMANTIC, MemoryType.DECISION, MemoryType.PREFERENCE):
             continue
         # Ensure slots populated

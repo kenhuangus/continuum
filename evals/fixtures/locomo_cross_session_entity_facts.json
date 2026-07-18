@@ -1,0 +1,36 @@
+{
+  "workspace_id": "locomo_cross_entity",
+  "org_id": "org_demo",
+  "budget_tokens": 400,
+  "critical_facts": ["VIP customer", "20%", "99.9%", "Diego Alvarez"],
+  "stale_facts": [],
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {
+        "user": "Note that Northwind is a VIP customer.",
+        "assistant": "Noted VIP customer status for Northwind."
+      },
+      {
+        "user": "Approved 20% discount for Northwind.",
+        "assistant": "Recorded the 20% Northwind decision."
+      },
+      {
+        "user": "Bramble Co SLA uptime is 99.9%.",
+        "assistant": "Recorded Bramble Co SLA."
+      },
+      {
+        "user": "Bramble Co account owner is Diego Alvarez.",
+        "assistant": "Recorded Bramble Co account owner."
+      },
+      {
+        "user": "Random chat about lunch plans for today, nothing business related.",
+        "assistant": "Sounds good, enjoy lunch."
+      }
+    ]
+  },
+  "session_b": {
+    "session_id": "s-b",
+    "query": "Summarize Northwind's VIP and discount status, and Bramble Co's SLA and account owner."
+  }
+}

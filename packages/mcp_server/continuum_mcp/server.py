@@ -12,6 +12,50 @@ from typing import Any
 from continuum_memory.schemas import Memory, MemoryStatus, MemoryType
 from continuum_memory.service import MemoryService
 
+
+def _api_key_org_map() -> dict[str, str]:
+    raw = os.environ.get("CONTINUUM_API_KEY_MAP", "")
+    if not raw.strip():
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(parsed, dict):
+        return {}
+    return {str(k): str(v) for k, v in parsed.items()}
+
+
+def _auth_enabled() -> bool:
+    if os.environ.get("CONTINUUM_AUTH_DISABLED", "").lower() in ("1", "true", "yes"):
+        return False
+    keys = {k.strip() for k in os.environ.get("CONTINUUM_API_KEYS", "").split(",") if k.strip()}
+    keys.update(_api_key_org_map().keys())
+    return bool(keys)
+
+
+def _resolve_mcp_org(arguments: dict[str, Any]) -> str:
+    """Resolve org from CONTINUUM_MCP_API_KEY / api_key arg when auth is on."""
+    key_map = _api_key_org_map()
+    if not _auth_enabled():
+        return str(arguments.get("org_id") or "org_demo")
+
+    api_key = (
+        arguments.get("api_key")
+        or os.environ.get("CONTINUUM_MCP_API_KEY")
+        or ""
+    ).strip()
+    valid = {k.strip() for k in os.environ.get("CONTINUUM_API_KEYS", "").split(",") if k.strip()}
+    valid.update(key_map.keys())
+    if not api_key or api_key not in valid:
+        raise PermissionError("Invalid or missing MCP API key (set CONTINUUM_MCP_API_KEY)")
+    org = key_map.get(api_key, "org_demo")
+    body_org = arguments.get("org_id")
+    if body_org is not None and str(body_org) != org:
+        raise PermissionError("org_id does not match API key organization")
+    return org
+
+
 TOOL_SCHEMAS = [
     {
         "name": "memory_search",
@@ -113,17 +157,20 @@ def _svc() -> MemoryService:
 
 def _call_tool(name: str, arguments: dict[str, Any]) -> Any:
     svc = _svc()
+    org = _resolve_mcp_org(arguments)
     if name == "memory_search":
         return [
             m.model_dump(mode="json")
-            for m in svc.search(arguments["workspace_id"], arguments.get("query", ""))
+            for m in svc.search(
+                arguments["workspace_id"], arguments.get("query", ""), org_id=org
+            )
         ]
     if name == "memory_remember":
         now = datetime.now(timezone.utc)
         mem_type = MemoryType(arguments.get("type", "semantic"))
         mem = Memory(
             id=str(uuid.uuid4()),
-            org_id=arguments.get("org_id", "org_demo"),
+            org_id=org,
             workspace_id=arguments["workspace_id"],
             type=mem_type,
             content=arguments["content"],
@@ -138,18 +185,20 @@ def _call_tool(name: str, arguments: dict[str, Any]) -> Any:
             arguments["memory_id"],
             reason=arguments.get("reason", "mcp"),
             workspace_id=arguments["workspace_id"],
+            org_id=org,
         )
     if name == "memory_list":
         st = MemoryStatus(arguments["status"]) if arguments.get("status") else None
         return [
             m.model_dump(mode="json")
-            for m in svc.list_memories(arguments["workspace_id"], st)
+            for m in svc.list_memories(arguments["workspace_id"], st, org_id=org)
         ]
     if name == "memory_explain":
         return svc.explain(
             arguments["memory_id"],
             arguments["workspace_id"],
             arguments.get("query", ""),
+            org_id=org,
         )
     if name == "memory_pack_preview":
         pack = svc.pack(
@@ -157,12 +206,14 @@ def _call_tool(name: str, arguments: dict[str, Any]) -> Any:
             arguments.get("query", ""),
             int(arguments.get("budget", 1500)),
             arguments.get("algorithm", "type_quota"),
+            org_id=org,
         )
         return pack.model_dump(mode="json")
     if name == "memory_consolidate":
         written = svc.consolidate(
             arguments["workspace_id"],
             max_groups=int(arguments.get("max_groups", 20)),
+            org_id=org,
         )
         return {
             "written": [m.model_dump(mode="json") for m in written],

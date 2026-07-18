@@ -26,7 +26,9 @@ dev = [
     "pytest-playwright>=0.5",
 ]
 mcp = ["mcp>=1.0"]
-postgres = ["sqlalchemy>=2.0"]
+postgres = ["sqlalchemy>=2.0", "psycopg[binary]>=3.1"]
+ann = ["numpy>=1.24"]
+ann-faiss = ["numpy>=1.24", "faiss-cpu>=1.7"]
 
 [project.scripts]
 continuum-mcp = "continuum_mcp.server:main"

@@ -1,0 +1,36 @@
+{
+  "workspace_id": "locomo_initech_temporal",
+  "org_id": "org_demo",
+  "budget_tokens": 400,
+  "critical_facts": ["18%", "VIP customer", "Priya Shah"],
+  "stale_facts": ["5%", "10%"],
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {
+        "user": "Approved 5% discount for Initech.",
+        "assistant": "Recorded the 5% Initech decision."
+      },
+      {
+        "user": "Note that Initech is a VIP customer.",
+        "assistant": "Noted VIP customer status."
+      },
+      {
+        "user": "Approved 10% discount for Initech for the new quarter, superseding the earlier 5% offer.",
+        "assistant": "Updated Initech to 10%."
+      },
+      {
+        "user": "Initech account owner is Priya Shah.",
+        "assistant": "Recorded account owner."
+      },
+      {
+        "user": "Approved 18% discount for Initech for the annual renewal, superseding the earlier 10% offer.",
+        "assistant": "Updated Initech to 18% for the annual renewal."
+      }
+    ]
+  },
+  "session_b": {
+    "session_id": "s-b",
+    "query": "What is Initech's current discount, VIP status, and account owner for the annual renewal?"
+  }
+}

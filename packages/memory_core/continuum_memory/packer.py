@@ -2,18 +2,45 @@ from __future__ import annotations
 
 import math
 import os
+import re
 
 from continuum_memory.schemas import Memory, MemoryType, PackedContext
 from continuum_memory.scoring import combined_rir_scores, score_breakdown
 
 _TYPE_BOOST: dict[MemoryType, float] = {
-    MemoryType.DECISION: 1.0,
-    MemoryType.PREFERENCE: 0.8,
+    MemoryType.DECISION: 1.2,
+    MemoryType.PREFERENCE: 1.0,
     MemoryType.SEMANTIC: 0.5,
     MemoryType.PROCEDURAL: 0.3,
     MemoryType.EPISODIC: 0.1,
     MemoryType.ARTIFACT_REF: 0.0,
 }
+
+_STALE_LANGUAGE_RE = re.compile(
+    r"(?i)\bobsolete\b|\boutdated\b|\bno longer\b|\bsuperseded\b|\bwas floated\b"
+)
+_STALE_LANGUAGE_PENALTY = 5.0
+
+
+def _is_obsolescence_marker(memory: Memory) -> bool:
+    """True for extractor-emitted retraction markers (see extractor.py).
+
+    These never carry positive packing value — they exist purely so
+    `supersession.apply_supersession` can retire stale active facts — and must
+    never be surfaced in packed context (noise-budget stale-leak fix).
+    """
+    slots = memory.slots or {}
+    return "obsolete_slot" in slots and "obsolete_value" in slots
+
+
+def _has_stale_language(memory: Memory) -> bool:
+    return bool(_STALE_LANGUAGE_RE.search(memory.content or ""))
+
+
+def filter_packable(memories: list[Memory]) -> list[Memory]:
+    """Drop obsolescence markers before any packing algorithm sees candidates."""
+    return [m for m in memories if not _is_obsolescence_marker(m)]
+
 
 _LEGACY_TYPE_BOOST: dict[MemoryType, float] = {
     MemoryType.DECISION: 4.0,
@@ -46,6 +73,8 @@ def _legacy_score(memory: Memory, query: str) -> float:
             if term in haystack:
                 score += 2.0
     score += _LEGACY_TYPE_BOOST.get(memory.type, 1.0)
+    if _has_stale_language(memory):
+        score -= _STALE_LANGUAGE_PENALTY
     return score
 
 
@@ -55,7 +84,10 @@ def _score(
     rir_scores: dict[str, float] | None = None,
 ) -> float:
     if rir_scores is not None and not _rir_disabled():
-        return rir_scores.get(memory.id, 0.0) + _TYPE_BOOST.get(memory.type, 0.0)
+        score = rir_scores.get(memory.id, 0.0) + _TYPE_BOOST.get(memory.type, 0.0)
+        if _has_stale_language(memory):
+            score -= _STALE_LANGUAGE_PENALTY
+        return score
     return _legacy_score(memory, query)
 
 
@@ -304,6 +336,7 @@ def pack_context(
     budget_tokens: int,
     algorithm: str = "type_quota",
 ) -> PackedContext:
+    memories = filter_packable(memories)
     rir_scores = _rir_map(memories, query)
     algo = (algorithm or "type_quota").lower()
     if algo == "greedy":

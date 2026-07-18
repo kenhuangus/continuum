@@ -28,10 +28,22 @@ class ForgettingEngine:
         self.confidence_threshold = confidence_threshold
         self.decay_factor = decay_factor
 
-    def run_pass(self, workspace_id: str) -> list[ForgetAuditEvent]:
+    def run_pass(
+        self,
+        workspace_id: str,
+        *,
+        org_id: str | None = None,
+    ) -> list[ForgetAuditEvent]:
         events: list[ForgetAuditEvent] = []
         now = datetime.now(timezone.utc)
-        active = self.store.list_by_workspace(workspace_id, MemoryStatus.ACTIVE)
+        try:
+            active = self.store.list_by_workspace(
+                workspace_id, MemoryStatus.ACTIVE, org_id=org_id
+            )
+        except TypeError:
+            active = self.store.list_by_workspace(workspace_id, MemoryStatus.ACTIVE)
+            if org_id is not None:
+                active = [m for m in active if m.org_id == org_id]
 
         for mem in active:
             effective_to = _ensure_aware(mem.effective_to)

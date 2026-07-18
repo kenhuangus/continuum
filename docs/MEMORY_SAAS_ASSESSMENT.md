@@ -201,3 +201,47 @@ Research docs: [`docs/research/AGENT_MEMORY_SURVEY.md`](research/AGENT_MEMORY_SU
 | Alibaba free-tier cloud | Blocked; do not claim production cloud |
 
 **Verdict after Loop 1–2:** Scientifically **credible hackathon Memory OS** with literature-aligned scoring, consolidation stub, graph edges, and eval wins under stress — still **not** a full research reproduction of HippoRAG/MemGPT/Mem0, and **not** production multi-tenant cloud SaaS.
+
+---
+
+## Progress after Loop 3 (2026-07-18)
+
+Design notes: [`docs/research/LOOP3_NOTES.md`](research/LOOP3_NOTES.md).
+
+### Newly shipped
+
+| Item | Status | Honesty note |
+|------|--------|--------------|
+| Noise-budget stale leak fix | **Shipped** — obsolescence extractor cues; supersession never installs obsolete values; packer `filter_packable` + type/slot priors; regression `test_noise_budget_stale.py` | `stress_noise_budget` Continuum `stale_leakage ≈ 0` |
+| Pure-Python BM25 sparse retrieve | **Shipped** — `bm25.py` wired into `sparse_retrieve` | Okapi BM25 over workspace corpus, not Lucene |
+| Numpy IVF-lite ANN | **Shipped** — `ann_index.py`; optional `faiss` if importable | Brute cosine for N≤256; not a managed vector DB |
+| HippoRAG-style PPR multi-hop | **Shipped** — `personalized_pagerank` + `expand_ppr` in `graph.py` | PPR on entity/supersedes edges only — not full HippoRAG OpenIE |
+| LoCoMo-*style* eval fixtures | **Shipped** — `evals/fixtures/locomo_*.json` (temporal, cross-session, adversarial stale) | Synthetic; **not** official LoCoMo dump/leaderboard |
+| Multi-tenant org isolation | **Shipped** — `org_id` on store list/search/get/forget; API `_resolve_request_org`; `CONTINUUM_API_KEY_MAP` | API keys → org; not OAuth/RBAC |
+| Postgres store path | **Shipped** — SQLAlchemy `PostgresMemoryStore` via `DATABASE_URL` | Optional deps; SQLite remains default |
+
+### Migration (SQLite → Postgres)
+
+1. `pip install sqlalchemy "psycopg[binary]"` (or `psycopg2-binary`)
+2. Set `DATABASE_URL=postgresql://user:pass@host:5432/continuum`
+3. First connect creates tables idempotently
+4. Set `CONTINUUM_API_KEY_MAP` before enabling auth
+5. Rollback: unset `DATABASE_URL`, use `CONTINUUM_DB_PATH`
+
+### Verified gates (Loop 3)
+
+- `pytest -m "unit or api or eval"` → **68 passed**
+- `python evals/run_suite.py` → **PASS** (26 fixtures; continuum recall **1.000** / stale **0.000** vs naive **0.923** / **0.038**)
+- `stress_noise_budget`: Continuum recall 1.0 / **stale 0.0** (WIN vs naive)
+
+### Remaining gaps
+
+| Gap | Notes |
+|-----|-------|
+| OAuth / full SaaS RBAC | API key → org only |
+| Managed vector DB / FAISS required path | Optional; numpy IVF-lite default |
+| Official LoCoMo / LongMemEval dumps | Style fixtures only |
+| LLM importance + Letta sleep-time | Not implemented |
+| Billing, PITR, policy engine | Not started |
+
+**Verdict after Loop 3:** Scientifically **stronger** (BM25+ANN+PPR, stale-leak closed, LoCoMo-style evals) and SaaS **closer** (real org isolation + Postgres path) — still a hackathon-grade Memory OS, not production multi-tenant cloud.

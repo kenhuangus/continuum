@@ -1,0 +1,32 @@
+{
+  "workspace_id": "locomo_delacroix_pref_drift",
+  "org_id": "org_demo",
+  "budget_tokens": 300,
+  "critical_facts": ["slack", "VIP customer"],
+  "stale_facts": ["email", "phone"],
+  "session_a": {
+    "session_id": "s-a",
+    "turns": [
+      {
+        "user": "Delacroix Studio prefers email communication.",
+        "assistant": "Recorded email as the preferred channel."
+      },
+      {
+        "user": "Note that Delacroix Studio is a VIP customer.",
+        "assistant": "Noted VIP customer status."
+      },
+      {
+        "user": "Delacroix Studio prefers phone communication.",
+        "assistant": "Updated preferred channel to phone."
+      },
+      {
+        "user": "Delacroix Studio prefers slack communication.",
+        "assistant": "Updated preferred channel to slack."
+      }
+    ]
+  },
+  "session_b": {
+    "session_id": "s-b",
+    "query": "What is Delacroix Studio's current contact preference and VIP status?"
+  }
+}
