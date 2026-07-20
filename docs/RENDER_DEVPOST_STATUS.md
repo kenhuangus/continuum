@@ -41,45 +41,29 @@ Evidence screenshots (local): `docs/screenshots/render_invoke_poll_11.png`, `ren
 
 | Item | Status |
 |------|--------|
-| Draft created | **Yes** — Continuum · submission `1106234-continuum` · **DRAFT** · **2/5 steps** |
-| Edit URL | https://devpost.com/submit-to/29966-global-ai-hackathon-series-with-qwen-cloud/manage/submissions/1106234-continuum/finalization |
-| Overview | Name **Continuum** + elevator pitch saved |
-| Project details | About / links partially filled; **Video demo link still required** |
-| Additional info | Page opened; required Qs listed but **not fully answered** via automation |
-| Final Submit | Clicked — blocked: *“Please complete required fields in Project details and Additional info”* |
-| Fully submitted? | **No** |
+| Draft created | **Yes** — Continuum · submission `1106234-continuum` · **DRAFT** |
+| Manage URL | https://devpost.com/submit-to/29966-global-ai-hackathon-series-with-qwen-cloud/manage/submissions/1106234-continuum/ |
+| Edit URL | https://devpost.com/submit-to/29966-global-ai-hackathon-series-with-qwen-cloud/manage/submissions/1106234-continuum/project_details/edit |
+| Finalization | https://devpost.com/submit-to/29966-global-ai-hackathon-series-with-qwen-cloud/manage/submissions/1106234-continuum/finalization |
+| Video demo URL | **https://youtu.be/OftGzFIvAAs** (ready to paste; not yet saved via automation) |
+| Try-it URL | `https://continuum-8hwx.onrender.com/` |
+| Repo | `https://github.com/kenhuangus/continuum` |
+| Built With | Must include **Qwen Cloud** |
+| Fully submitted? | **No** — 2026-07-20 ~00:33: cursor-ide-browser MCP had **no persistent tab** (`navigate` → *No browser tab available*; created tabs vanished immediately) |
+
+Evidence: [YOUTUBE_UPLOAD_RESULT.md](YOUTUBE_UPLOAD_RESULT.md)
 
 ---
 
-## Remaining human steps (only true blockers)
+## Remaining blocker (Browser panel)
 
-Open the draft (Chrome already logged in):  
-https://devpost.com/submit-to/29966-global-ai-hackathon-series-with-qwen-cloud/manage/submissions/1106234-continuum/project_details/edit
+Open the Continuum draft in **this chat’s Cursor Browser panel** (logged in), then re-run agent submit:
 
-1. **Project details**
-   - Confirm **About the project** text (paste from [DEVPOST_SUBMIT_PACKET.md](DEVPOST_SUBMIT_PACKET.md) if empty).
-   - **Built with:** add tags including **Qwen Cloud** (plus FastAPI/Docker/etc.).
-   - **Try it out:** `https://continuum-8hwx.onrender.com/`
-   - **GitHub / code link:** `https://github.com/kenhuangus/continuum`
-   - **Video demo link (required):** upload `demo_video/continuum_demo.mp4` to YouTube (public/unlisted) → paste URL. *(No YouTube URL available to the agent.)*
-   - Optional: upload `docs/architecture.png` to Image gallery.
-   - Select track **MemoryAgent** if shown on this form.
-   - Click **Save & continue**.
+1. **Project details** — paste Video `https://youtu.be/OftGzFIvAAs`; Try-it `https://continuum-8hwx.onrender.com/`; Built with **Qwen Cloud**; repo `https://github.com/kenhuangus/continuum`; Save.
+2. **Additional info** — complete required fields (Individual if needed; keep existing personal values).
+3. **Submit** — check terms/rules → **Submit project** → confirm **Submitted** (not DRAFT). Screenshot → `docs/screenshots/devpost_submitted.png`.
 
-2. **Additional info** (tab in stepper)
-   - Submitter type → **Individual**
-   - Country → **United States** (or yours)
-   - Newly built vs existing → answer (e.g. **newly built**)
-   - Start date → e.g. hackathon period date
-   - Any other required custom questions
-   - **Save & continue**
-
-3. **Submit**
-   - Check Official Rules / Terms checkbox
-   - Click **Submit project**
-   - Confirm status is no longer **DRAFT**
-
-4. **Optional:** Render dashboard → continuum service → Environment → add `DASHSCOPE_API_KEY` so judge chat works.
+4. **Optional:** Render → add `DASHSCOPE_API_KEY` so judge chat works.
 
 5. **Optional Alibaba PoD:** only if still required — human **Start for Free** free ECS (no paid SKUs), then deploy Docker.
 
