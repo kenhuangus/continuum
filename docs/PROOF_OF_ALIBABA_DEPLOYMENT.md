@@ -6,6 +6,10 @@
 
 **Why not Alibaba:** Prior Singapore ECS gone; Trial Center → paid Custom Launch; free claim needs human Start for Free / eligibility; no free running compute; paid paths aborted. See [OVERNIGHT_STATUS.md](OVERNIGHT_STATUS.md).
 
+**Judge-facing explanation (plain text + PNG):**
+- [ALIBABA_DEPLOYMENT_UNAVAILABLE.txt](ALIBABA_DEPLOYMENT_UNAVAILABLE.txt)
+- [screenshots/alibaba_deployment_unavailable.png](screenshots/alibaba_deployment_unavailable.png)
+
 **Fallback Try-it (not this PoD):** Continuum on Render free — https://continuum-8hwx.onrender.com/ — see [RENDER_DEVPOST_STATUS.md](RENDER_DEVPOST_STATUS.md). Does **not** replace Alibaba deployment proof.
 
 ## Devpost fields

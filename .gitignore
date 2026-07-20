@@ -26,6 +26,7 @@ docs/screenshots/*.png
 docs/screenshots/*.jpg
 docs/screenshots/*.jpeg
 !docs/screenshots/alibaba_workbench.png
+!docs/screenshots/alibaba_deployment_unavailable.png
 !docs/screenshots/devpost_submit_confirmation.png
 !docs/screenshots/render_invoke_poll_11.png
 !docs/screenshots/render_svc_continuum.png

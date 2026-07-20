@@ -1,0 +1,54 @@
+ALIBABA CLOUD DEPLOYMENT — UNAVAILABLE (FREE TIER)
+Continuum — Track 1 MemoryAgent — Global AI Hackathon Series with Qwen Cloud
+Date: 2026-07-20
+
+HONEST STATEMENT FOR JUDGES
+===========================
+Continuum could NOT be deployed on free Alibaba Cloud compute for this submission.
+There is no live Alibaba PUBLIC_URL.
+
+WHY
+---
+1. Prior Singapore ECS instance is gone / not listed.
+   - Former instance: i-t4n56ciqqnpj9pzemhnb (name: continuum)
+   - Former public IP http://47.237.148.192:8000 is unreachable
+   - Singapore ECS console list = 0 instances; security group continuum-sg shows 0 In Use
+
+2. ECS International Personal Trial Center redirects to paid Custom Launch
+   (Subscription / paid catalog). Paid SKUs were ABORTED per free-only constraint.
+
+3. Free claim requires interactive human "Start for Free" / eligibility / CAPTCHA
+   on marketing + My Trial surfaces. That step could not be completed overnight.
+
+4. Six distinct free-tier attempts failed (summary):
+   (1) Redeploy existing free ECS — instance gone
+   (2) Trial Center — paid Custom Launch only → aborted
+   (3) Free landing / My Trial reclaim — no reclaimable free VM
+   (4) Simple Application Server Singapore — 0 servers
+   (5) Function Compute sandbox + Tokyo/US-West ECS — empty / 0
+   (6) SG + buy-wizard eligibility — paid wizard → aborted; final ECS still 0
+
+5. Paid paths were explicitly aborted. No pay-as-you-go / subscription create.
+
+FALLBACK TRY-IT (NOT ALIBABA PROOF OF DEPLOYMENT)
+-------------------------------------------------
+App is live on Render free tier as a demo Try-it URL only:
+  https://continuum-8hwx.onrender.com/
+  Health: https://continuum-8hwx.onrender.com/v1/health  → status: ok
+
+This Render URL does NOT replace Alibaba Cloud deployment proof.
+
+LINKS
+-----
+Repo:  https://github.com/kenhuangus/continuum
+Video: https://youtu.be/OftGzFIvAAs
+Evidence: docs/OVERNIGHT_STATUS.md
+          docs/PROOF_OF_ALIBABA_DEPLOYMENT.md
+          docs/RENDER_DEVPOST_STATUS.md
+          docs/screenshots/alibaba_deployment_unavailable.png
+
+PURPOSE OF THIS FILE
+--------------------
+Honest proof-of-attempt / explanation for judges: free Alibaba compute was
+not obtainable after six serious overnight attempts; Continuum remains
+deployable via Docker (see repo Dockerfile / infra/) when a free instance exists.
