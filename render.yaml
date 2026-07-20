@@ -21,5 +21,4 @@ services:
         value: "1"
       - key: CONTINUUM_DB_PATH
         value: /app/data/continuum.db
-      - key: DASHSCOPE_API_KEY
-        sync: false
+      # DASHSCOPE_API_KEY omitted: not in local .env; health/UI still work; chat degrades until set in Render dashboard.
