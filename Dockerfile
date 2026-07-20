@@ -23,4 +23,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8000/v1/health || exit 1
 
-CMD ["uvicorn", "continuum_api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Respect PORT (Render sets it; local/Alibaba default 8000)
+CMD ["sh", "-c", "uvicorn continuum_api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

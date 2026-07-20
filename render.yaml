@@ -1,0 +1,25 @@
+# Continuum — Render Blueprint (free Web Service, Docker)
+# Deploy deeplink: https://dashboard.render.com/blueprint/new?repo=https://github.com/kenhuangus/continuum
+# Also: https://render.com/deploy?repo=https://github.com/kenhuangus/continuum
+#
+# Honest note: this is a non-Alibaba Try-it URL host. Alibaba free compute was blocked overnight.
+
+services:
+  - type: web
+    name: continuum
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: master
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /v1/health
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: CONTINUUM_AUTH_DISABLED
+        value: "1"
+      - key: CONTINUUM_DB_PATH
+        value: /app/data/continuum.db
+      - key: DASHSCOPE_API_KEY
+        sync: false
