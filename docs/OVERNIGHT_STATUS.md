@@ -50,9 +50,10 @@ Prior known IP `http://47.237.148.192:8000` is **dead** (connection timeout; ins
 
 1. **Claim free compute** (if still eligible): unlock machine → Chrome already on Alibaba → **Start for Free** / My Trial → claim **free ECS** (Singapore preferred) — **no paid SKUs**. Or create FC free sandbox if offer allows Docker/HTTP.
 2. **Deploy Continuum** on that free host (or ask agent once free VM exists): Docker + `CONTINUUM_AUTH_DISABLED=1` + `DASHSCOPE_API_KEY`; open SG **TCP 8000**; verify `curl http://PUBLIC_IP:8000/v1/health`.
-3. **Capture Workbench screenshot** of **Running** resource → replace `docs/screenshots/alibaba_workbench.png` → push.
-4. **Upload demo video** to YouTube (public or unlisted) from `demo_video/continuum_demo.mp4` — **login required**.
-5. **Paste** fields from `docs/DEVPOST_SUBMIT_PACKET.md` into Devpost → attach architecture PNG + Workbench PNG → paste YouTube URL → **Submit** (CAPTCHA if any).
+3. **(Optional fallback Try-it URL)** If Alibaba stays blocked: deploy on **Render free** per [FREE_HOSTING_OPTIONS.md](FREE_HOSTING_OPTIONS.md) — **not** Alibaba proof; use only as Devpost live demo link.
+4. **Capture Workbench screenshot** of **Running** resource → replace `docs/screenshots/alibaba_workbench.png` → push.
+5. **Upload demo video** to YouTube (public or unlisted) from `demo_video/continuum_demo.mp4` — **login required**.
+6. **Paste** fields from `docs/DEVPOST_SUBMIT_PACKET.md` into Devpost → attach architecture PNG + Workbench PNG → paste YouTube URL → **Submit** (CAPTCHA if any).
 
 ## Blockers
 
@@ -61,8 +62,17 @@ Prior known IP `http://47.237.148.192:8000` is **dead** (connection timeout; ins
 3. **CLI RAM keys** cannot manage the kenhuangus Chrome account’s ECS (wrong account or insufficient policy on secondary accounts).
 4. **YouTube + Devpost Submit** require human login / final click.
 
+## Fallback: free hosting (non-Alibaba) for Devpost “Try it”
+
+If Alibaba compute stays blocked, Continuum **can** run on other free hosts (Docker FastAPI on port 8000). That gives judges a clickable URL but **does not** replace Alibaba deployment proof.
+
+- Full ranking + checklist: **[FREE_HOSTING_OPTIONS.md](FREE_HOSTING_OPTIONS.md)**
+- **Best bet:** Render free Web Service (Docker, no credit card; spins down after ~15 min idle)
+- **This session:** no free-host deploy completed — missing Render/Railway/Fly credentials; HF token is read-only; gcloud has no billing account; Docker engine down; no `DASHSCOPE_API_KEY` in `.env` → **PUBLIC_URL still NONE**
+
 ## Related files
 
+- [FREE_HOSTING_OPTIONS.md](FREE_HOSTING_OPTIONS.md)
 - [DEVPOST_SUBMIT_PACKET.md](DEVPOST_SUBMIT_PACKET.md)
 - [PROOF_OF_ALIBABA_DEPLOYMENT.md](PROOF_OF_ALIBABA_DEPLOYMENT.md)
 - [HACKATHON_SUBMIT.md](HACKATHON_SUBMIT.md)
