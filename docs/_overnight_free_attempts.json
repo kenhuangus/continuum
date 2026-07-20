@@ -1,0 +1,101 @@
+{
+  "attempt_1": {
+    "n": 1,
+    "name": "Existing continuum ECS SG+Workbench redeploy",
+    "result": "FAILED \u2014 instance i-t4n56ciqqnpj9pzemhnb gone; Singapore has 0 instances; continuum-sg 0 In Use; Workbench hung",
+    "shots": [
+      "overnight_01_instances.png",
+      "overnight_03_sg_list.png",
+      "overnight_05_workbench.png"
+    ]
+  },
+  "attempts_2_to_6": [
+    {
+      "n": 2,
+      "name": "ECS International Personal Trial Center",
+      "url": "https://ecs-buy.alibabacloud.com/trialCenter#/internationalPersonalTrial",
+      "title": "Alibaba Cloud - Elastic computing - Google Chrome",
+      "shot": "overnight_a2_ecs_trial.png",
+      "bytes": 118463
+    },
+    {
+      "n": 3,
+      "name": "Free landing + My Trial",
+      "shots": [
+        {
+          "url": "https://www.alibabacloud.com/free",
+          "title": "Start for Free - Google Chrome",
+          "shot": "overnight_a3_free_landing.png",
+          "bytes": 209360
+        },
+        {
+          "url": "https://usercenter2-intl.console.alibabacloud.com/finance/free-trial",
+          "title": "Overview of Monthly Bill - Expenses and Costs - Google Chrome",
+          "shot": "overnight_a3_my_trial.png",
+          "bytes": 118603
+        }
+      ]
+    },
+    {
+      "n": 4,
+      "name": "Simple Application Server Singapore",
+      "url": "https://swas.console.alibabacloud.com/overview?regionId=ap-southeast-1",
+      "title": "Simple Application Server Console - Google Chrome",
+      "shot": "overnight_a4_sas_sg.png",
+      "bytes": 109131
+    },
+    {
+      "n": 5,
+      "name": "FC + ECS Tokyo/US-West",
+      "shots": [
+        {
+          "url": "https://fcnext.console.alibabacloud.com/overview?region=ap-southeast-1",
+          "title": "fcnext.console.alibabacloud.com - Google Chrome",
+          "shot": "overnight_a5_fc_sg.png",
+          "bytes": 66400
+        },
+        {
+          "url": "https://ecs.console.alibabacloud.com/server/region/ap-northeast-1",
+          "title": "ECS Console - Google Chrome",
+          "shot": "overnight_a5_ecs_tokyo.png",
+          "bytes": 115046
+        },
+        {
+          "url": "https://ecs.console.alibabacloud.com/server/region/us-west-1",
+          "title": "ECS Console - Google Chrome",
+          "shot": "overnight_a5_ecs_uswest.png",
+          "bytes": 116374
+        }
+      ]
+    },
+    {
+      "n": 6,
+      "name": "SG rules + buy wizard eligibility + final instance check",
+      "shots": [
+        {
+          "url": "https://ecs.console.alibabacloud.com/securityGroup/region/ap-southeast-1#/detail?securityGroupId=sg-t4n6m0z3fekvizng9ho1",
+          "title": "ECS Console - Google Chrome",
+          "shot": "overnight_a6_sg_rules.png",
+          "bytes": 123607
+        },
+        {
+          "url": "https://ecs-buy.alibabacloud.com/wizard/#/prePay/index?regionId=ap-southeast-1",
+          "title": "Alibaba Cloud - Elastic computing - Google Chrome",
+          "shot": "overnight_a6_wizard.png",
+          "bytes": 126723
+        },
+        {
+          "url": "https://ecs.console.alibabacloud.com/server/region/ap-southeast-1",
+          "title": "ECS Console - Google Chrome",
+          "shot": "overnight_a6_instances_final.png",
+          "bytes": 112976
+        }
+      ]
+    }
+  ],
+  "accounts": {
+    "chrome_session": "kenhuangus@gm... Main Account (browser)",
+    "cli_default": "AccountId 1693146562821514 RAM power-application-user \u2014 0 ECS, $0 balance",
+    "cli_continuum_free": "AccountId 5331784392600943 RAM continuum-deploy \u2014 Forbidden.RAM on ECS"
+  }
+}

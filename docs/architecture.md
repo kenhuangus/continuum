@@ -25,7 +25,7 @@ flowchart TB
         GW[Auth, rate limit, X-Request-Id]
     end
 
-    subgraph Deploy["Alibaba Cloud deploy plane — ECS primary (scaffolding; live pending)"]
+    subgraph Deploy["Alibaba Cloud deploy plane — ECS primary (Docker runbook ready; live instance pending free reclaim)"]
         Host[ECS / FC hosts Continuum API]
     end
 
@@ -95,7 +95,7 @@ flowchart TB
 
 **Shipped path:** Demo Web UI → Continuum API (auth/rate limit/X-Request-Id in-app) → Memory Core (retrieve/pack/extract) → ContinuumAgent → QwenClient → Qwen Cloud (DashScope compatible-mode: `dashscope-intl.aliyuncs.com`); store is SQLite. MCP stdio clients talk to the Continuum MCP server → MemoryService/Store.
 
-**Planned / later (dashed):** optional API Gateway/edge, Tablestore. **ECS hosting:** Docker/runbook scaffolding in `infra/` (live instance pending — see [PROOF_OF_ALIBABA_DEPLOYMENT.md](PROOF_OF_ALIBABA_DEPLOYMENT.md)).
+**Planned / later (dashed):** optional API Gateway/edge, Tablestore. **ECS hosting:** Docker/runbook ready in `infra/`; **live public URL pending free-instance reclaim** (overnight 2026-07-20: prior Singapore free ECS gone — see [PROOF_OF_ALIBABA_DEPLOYMENT.md](PROOF_OF_ALIBABA_DEPLOYMENT.md) and [OVERNIGHT_STATUS.md](OVERNIGHT_STATUS.md)). Do not treat dashed Host→API as currently live.
 
 ## Data flow (chat)
 

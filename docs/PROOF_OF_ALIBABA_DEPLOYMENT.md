@@ -1,103 +1,95 @@
 # Proof of Alibaba Cloud Deployment
 
-**Constraint:** Free-trial only — use `InstanceType = FREE_TRIAL_INSTANCE_TYPE` (exact type from [ECS Trial Center](https://ecs-buy.alibabacloud.com/trialCenter#/internationalPersonalTrial)); do not recommend paid ROS defaults or pay-as-you-go non-trial SKUs. Abort if not free-trial eligible.
+**Constraint:** Free-trial / free SKUs only. Do **not** create paid pay-as-you-go or subscription ECS for this hackathon path.
 
-**Status:** Scaffolding ready · **Live Alibaba deploy:** blocked (no AccessKey / console session on this machine)
+**Status (2026-07-20 overnight):** Scaffolding ready · **Live Alibaba deploy: NOT LIVE**
 
-Continuum is containerized and smoke-tested locally. A public Alibaba endpoint and Workbench screenshot still require account credentials (see [Blockers](#blockers-machine-status-2026-07-18)).
+Overnight automation completed **6 distinct free-tier attempts** (existing VM redeploy, trial center, free landing/My Trial, Simple Application Server, Function Compute + other regions, SG/wizard eligibility). **No free running compute** was available to host Continuum. See [OVERNIGHT_STATUS.md](OVERNIGHT_STATUS.md) for the attempt table and screenshots.
 
-## Devpost fields (fill when live)
+Continuum is containerized and smoke-tested locally. Public endpoint + fresh Workbench “Running” screenshot still require a free instance claim by a human (or a later free reclaim).
+
+## Devpost fields
 
 | Field | Value |
 |-------|-------|
-| **Code file (DashScope / Qwen Cloud)** | `packages/agent/continuum_agent/client.py` — `DEFAULT_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"` |
-| **Workbench screenshot path** | `docs/screenshots/alibaba_workbench.png` *(not captured yet — see [screenshots/README.md](screenshots/README.md))* |
-| **Deployed endpoint (`PUBLIC_URL`)** | `TBD` — e.g. `http://<ECS_PUBLIC_IP>:8000` or FC HTTP trigger URL after deploy |
-| **Instance / region** | `INSTANCE_ID=TBD` · `InstanceType=FREE_TRIAL_INSTANCE_TYPE` (from trial center) · prefer `ap-southeast-1` (Singapore, International) |
-
-Paste a **public GitHub blob URL** to `client.py` on Devpost. Upload the Workbench PNG once captured.
+| **Code file (DashScope / Qwen Cloud)** | [`packages/agent/continuum_agent/client.py`](https://github.com/kenhuangus/continuum/blob/master/packages/agent/continuum_agent/client.py) — `DEFAULT_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"` |
+| **Workbench screenshot path** | `docs/screenshots/alibaba_workbench.png` — **stale** (shows former Running `continuum` / `i-t4n56ciqqnpj9pzemhnb`). Current console: **0 instances** (see `overnight_a6_instances_final.png`). Replace after free reclaim. |
+| **Deployed endpoint (`PUBLIC_URL`)** | **TBD / NONE** — former `http://47.237.148.192:8000` unreachable (timeout); instance ID no longer listed |
+| **Instance / region** | Former: `i-t4n56ciqqnpj9pzemhnb` · Singapore `ap-southeast-1` · name `continuum` — **deleted/expired as of overnight check**. Leftover SG: `sg-t4n6m0z3fekvizng9ho1` (`continuum-sg`, 0 In Use) |
 
 ## Architecture (deploy plane)
 
 ```
 Internet / judges
-    → ECS:8000 or FC HTTP trigger (Continuum FastAPI + demo UI)
+    → ECS:8000 or FC HTTP trigger (Continuum FastAPI + demo UI)   ← NOT LIVE overnight
         → DashScope Qwen Cloud (dashscope-intl.aliyuncs.com/compatible-mode/v1)
         → SQLite volume (/app/data/continuum.db)
 ```
 
-Primary path: **ECS + Docker**. Alternative: **Function Compute** custom container ([infra/fc/s.yaml](../infra/fc/s.yaml)). ROS: [infra/ros/continuum-ecs.template.json](../infra/ros/continuum-ecs.template.json).
+Primary path: **ECS + Docker** (free trial only). Alternative: **Function Compute** custom container ([infra/fc/s.yaml](../infra/fc/s.yaml)). ROS: [infra/ros/continuum-ecs.template.json](../infra/ros/continuum-ecs.template.json).
 
-## Steps to reproduce
+## Overnight evidence (not a live PoD)
 
-1. **Prerequisites**
-   - Alibaba Cloud **International** account ([alibabacloud.com](https://www.alibabacloud.com))
-   - AccessKey configured: `aliyun configure` (creates `~/.aliyun/config.json`)
-   - `DASHSCOPE_API_KEY` from DashScope / Qwen Cloud console
-   - Docker locally (verified: `continuum:local` builds and `/v1/health` returns `ok`)
+| Shot | Meaning |
+|------|---------|
+| `docs/screenshots/overnight_01_instances.png` | Singapore ECS empty |
+| `docs/screenshots/overnight_03_sg_list.png` | `continuum-sg` exists, 0 In Use |
+| `docs/screenshots/overnight_05_workbench.png` | Workbench hung on missing instance |
+| `docs/screenshots/overnight_a2_ecs_trial.png` | Trial Center → paid Custom Launch |
+| `docs/screenshots/overnight_a3_free_landing.png` | Free marketing CTA |
+| `docs/screenshots/overnight_a4_sas_sg.png` | SAS Singapore = 0 |
+| `docs/screenshots/overnight_a5b_fc_console.png` | FC Cloud Sandbox empty |
+| `docs/screenshots/overnight_a6_instances_final.png` | Final Singapore ECS still 0 |
 
-2. **Build**
-   ```powershell
-   .\infra\scripts\build.ps1
-   .\infra\scripts\run-local.ps1
-   .\infra\scripts\smoke-health.ps1
-   ```
-   Or: `docker build -t continuum:local .` then `docker compose up`.
+## Steps to reproduce (when free instance exists)
 
-3. **Deploy (ECS — recommended, free trial only)**
-   - Claim trial at Trial Center; follow [infra/ecs/DEPLOY.md](../infra/ecs/DEPLOY.md)
-   - `InstanceType = FREE_TRIAL_INSTANCE_TYPE` from the offer — abort if paid catalog
-   - Security group: TCP **22** + **8000** ([infra/ecs/security-group.md](../infra/ecs/security-group.md))
-   - On instance: `/etc/continuum.env` from [infra/ecs/continuum.env.example](../infra/ecs/continuum.env.example)
-   - Run container with volume `/app/data`, publish `8000:8000`
-   - Optional: push to ACR ([infra/acr/push.md](../infra/acr/push.md)) then pull on ECS
-   - Optional ROS: create stack from [infra/ros/continuum-ecs.template.json](../infra/ros/continuum-ecs.template.json) — replace `FREE_TRIAL_INSTANCE_TYPE`; do not use paid ROS defaults
+1. Claim **free** ECS (International Personal Trial / Start for Free) — prefer Singapore `ap-southeast-1`. **Abort** if console only offers paid catalog.
+2. Security group: TCP **22** + **8000** — see [infra/ecs/security-group.md](../infra/ecs/security-group.md).
+3. On instance:
 
-4. **Deploy (FC — alternative, free CU / free trial only)**
-   - Push image to ACR; set image URI in [infra/fc/s.yaml](../infra/fc/s.yaml); abort if beyond free quota
-   - `npm i -g @serverless-devs/s` → `s config add` → `export DASHSCOPE_API_KEY=...` → `s deploy` from `infra/fc/`
-   - See [infra/fc/README.md](../infra/fc/README.md)
+```bash
+git clone https://github.com/kenhuangus/continuum.git /opt/continuum
+cd /opt/continuum
+sudo docker build -t continuum:local .
+sudo tee /etc/continuum.env <<'EOF'
+DASHSCOPE_API_KEY=YOUR_KEY
+CONTINUUM_AUTH_DISABLED=1
+CONTINUUM_DB_PATH=/app/data/continuum.db
+EOF
+sudo chmod 600 /etc/continuum.env
+sudo mkdir -p /app/data
+sudo docker run -d --name continuum --restart unless-stopped \
+  -p 8000:8000 --env-file /etc/continuum.env -v /app/data:/app/data continuum:local
+curl -fsS http://127.0.0.1:8000/v1/health
+```
 
-5. **Verify**
-   ```bash
-   curl http://PUBLIC_IP:8000/v1/health
-   # expect {"status":"ok","service":"continuum",...}
-   ```
-   Open `http://PUBLIC_IP:8000/` for the demo UI.
+4. From laptop: `curl -fsS http://PUBLIC_IP:8000/v1/health`
+5. Capture Workbench **Running** → `docs/screenshots/alibaba_workbench.png`
+6. Update this doc’s `PUBLIC_URL` / Instance ID / Region
 
-6. **Workbench screenshot**
-   - Follow [infra/scripts/capture_console_screenshot.md](../infra/scripts/capture_console_screenshot.md)
-   - Save as `docs/screenshots/alibaba_workbench.png` (instance **Running**)
-
-7. **Update this doc**
-   - Replace `PUBLIC_URL`, `INSTANCE_ID`, and `REGION` placeholders above
-   - Mark checklist items complete
+Full runbook: [infra/ecs/DEPLOY.md](../infra/ecs/DEPLOY.md).
 
 ## Deployment checklist
 
 - [x] Containerize API (`Dockerfile` at repo root)
-- [x] Local image build + health smoke (`continuum:local` → `/v1/health` = 200)
+- [x] Local image build + health smoke
 - [x] ECS / ACR / FC / ROS scaffolding under `infra/`
-- [ ] Configure `aliyun` AccessKey (`~/.aliyun/config.json`)
-- [ ] Set `DASHSCOPE_API_KEY` (local `.env` and/or `/etc/continuum.env` on ECS)
-- [ ] Create ECS (or FC) and obtain public URL
-- [ ] Capture `docs/screenshots/alibaba_workbench.png`
-- [ ] Fill `PUBLIC_URL` / `INSTANCE_ID` / `REGION` in this file
+- [x] Overnight free-tier attempts documented ([OVERNIGHT_STATUS.md](OVERNIGHT_STATUS.md))
+- [ ] Live free ECS/FC with Continuum container
+- [ ] Fresh Workbench screenshot (Running)
+- [ ] Fill `PUBLIC_URL` / `INSTANCE_ID` / `REGION` with live values
 - [ ] Paste code-file blob URL + screenshot on Devpost
 
-## Blockers (machine status 2026-07-18)
+## Blockers (2026-07-20)
 
 | Check | Result |
 |-------|--------|
-| `aliyun` CLI | Installed **v3.4.8** (winget) |
-| `~/.aliyun/config.json` | **Missing** — `aliyun configure list` fails |
-| Env `DASHSCOPE_API_KEY` / `QWEN_API_KEY` | **Not set** |
-| Docker | Available; image `continuum:local` builds; health OK on host port 18080 |
-| Alibaba console (Playwright) | Redirects to **Login** — no browser session |
+| Former ECS `i-t4n56ciqqnpj9pzemhnb` | **Gone** from console; IP unreachable |
+| Free Trial Center | Redirects to **paid** Custom Launch |
+| Free landing / My Trial | Needs human claim; no free VM listed |
+| SAS / FC sandbox / other regions | Empty |
+| `aliyun` CLI profiles | Wrong account or Forbidden.RAM — cannot create via CLI on Chrome account |
 | Live `PUBLIC_URL` | **None** |
-| `docs/screenshots/alibaba_workbench.png` | **Not present** |
-
-**Unblock:** run `aliyun configure` with International AccessKey ID/Secret, create `.env` with `DASHSCOPE_API_KEY`, complete [infra/ecs/DEPLOY.md](../infra/ecs/DEPLOY.md), then capture the Workbench screenshot.
 
 ## Qwen Cloud
 
@@ -105,10 +97,11 @@ Primary path: **ECS + Docker**. Alternative: **Function Compute** custom contain
 https://dashscope-intl.aliyuncs.com/compatible-mode/v1
 ```
 
-Implemented in `continuum_agent.client.QwenClient` (`packages/agent/continuum_agent/client.py`). Configure via `.env` / `/etc/continuum.env` — see `.env.example`.
+Implemented in `continuum_agent.client.QwenClient` (`packages/agent/continuum_agent/client.py`).
 
 ## Related
 
-- [infra/README.md](../infra/README.md) — topology and scripts
-- [HACKATHON_SUBMIT.md](HACKATHON_SUBMIT.md) — full submission checklist
-- [screenshots/README.md](screenshots/README.md) — screenshot requirements
+- [OVERNIGHT_STATUS.md](OVERNIGHT_STATUS.md)
+- [DEVPOST_SUBMIT_PACKET.md](DEVPOST_SUBMIT_PACKET.md)
+- [infra/README.md](../infra/README.md)
+- [HACKATHON_SUBMIT.md](HACKATHON_SUBMIT.md)
