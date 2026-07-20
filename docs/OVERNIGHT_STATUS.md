@@ -5,13 +5,22 @@
 **Track:** MemoryAgent  
 **Repo:** https://github.com/kenhuangus/continuum (public, Apache-2.0)
 
+## Why Continuum cannot deploy to Alibaba Cloud
+
+Prior Singapore ECS is **gone**; Trial Center **redirects to paid Custom Launch**; free claim needs human **Start for Free** / eligibility; **no free running compute**; paid paths **aborted**. See attempt log below. Full follow-up: [RENDER_DEVPOST_STATUS.md](RENDER_DEVPOST_STATUS.md).
+
 ## Verdict
 
-**No live PUBLIC_URL.** Free Alibaba compute was not obtainable overnight after **6 distinct serious attempts**. Paid ECS paths were aborted. Submission packet + proof docs + screenshots of attempts are ready for human finish (YouTube + Devpost Submit).
+**No live Alibaba PUBLIC_URL.** Free Alibaba compute was not obtainable overnight after **6 distinct serious attempts**. Paid ECS paths were aborted.
+
+**Fallback Try-it (not Alibaba PoD):** Continuum is live on **Render free** — https://continuum-8hwx.onrender.com/ · health `/v1/health` → `status: ok`.
 
 ## PUBLIC_URL
 
-`NONE` — Continuum is not publicly reachable on Alibaba Cloud at this time.
+| Host | URL |
+|------|-----|
+| **Alibaba** | `NONE` — not publicly reachable on Alibaba Cloud |
+| **Render (demo only)** | https://continuum-8hwx.onrender.com/ |
 
 Prior known IP `http://47.237.148.192:8000` is **dead** (connection timeout; instance no longer listed).
 

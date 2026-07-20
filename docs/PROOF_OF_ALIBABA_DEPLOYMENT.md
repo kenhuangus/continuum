@@ -2,11 +2,11 @@
 
 **Constraint:** Free-trial / free SKUs only. Do **not** create paid pay-as-you-go or subscription ECS for this hackathon path.
 
-**Status (2026-07-20 overnight):** Scaffolding ready · **Live Alibaba deploy: NOT LIVE**
+**Status (2026-07-20):** Scaffolding ready · **Live Alibaba deploy: NOT LIVE**
 
-Overnight automation completed **6 distinct free-tier attempts** (existing VM redeploy, trial center, free landing/My Trial, Simple Application Server, Function Compute + other regions, SG/wizard eligibility). **No free running compute** was available to host Continuum. See [OVERNIGHT_STATUS.md](OVERNIGHT_STATUS.md) for the attempt table and screenshots.
+**Why not Alibaba:** Prior Singapore ECS gone; Trial Center → paid Custom Launch; free claim needs human Start for Free / eligibility; no free running compute; paid paths aborted. See [OVERNIGHT_STATUS.md](OVERNIGHT_STATUS.md).
 
-Continuum is containerized and smoke-tested locally. Public endpoint + fresh Workbench “Running” screenshot still require a free instance claim by a human (or a later free reclaim).
+**Fallback Try-it (not this PoD):** Continuum on Render free — https://continuum-8hwx.onrender.com/ — see [RENDER_DEVPOST_STATUS.md](RENDER_DEVPOST_STATUS.md). Does **not** replace Alibaba deployment proof.
 
 ## Devpost fields
 
@@ -14,7 +14,7 @@ Continuum is containerized and smoke-tested locally. Public endpoint + fresh Wor
 |-------|-------|
 | **Code file (DashScope / Qwen Cloud)** | [`packages/agent/continuum_agent/client.py`](https://github.com/kenhuangus/continuum/blob/master/packages/agent/continuum_agent/client.py) — `DEFAULT_BASE_URL = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"` |
 | **Workbench screenshot path** | `docs/screenshots/alibaba_workbench.png` — **stale** (shows former Running `continuum` / `i-t4n56ciqqnpj9pzemhnb`). Current console: **0 instances** (see `overnight_a6_instances_final.png`). Replace after free reclaim. |
-| **Deployed endpoint (`PUBLIC_URL`)** | **TBD / NONE** — former `http://47.237.148.192:8000` unreachable (timeout); instance ID no longer listed |
+| **Deployed endpoint (`PUBLIC_URL`)** | **NONE on Alibaba** — former `http://47.237.148.192:8000` unreachable. Demo-only Render: https://continuum-8hwx.onrender.com/ |
 | **Instance / region** | Former: `i-t4n56ciqqnpj9pzemhnb` · Singapore `ap-southeast-1` · name `continuum` — **deleted/expired as of overnight check**. Leftover SG: `sg-t4n6m0z3fekvizng9ho1` (`continuum-sg`, 0 In Use) |
 
 ## Architecture (deploy plane)

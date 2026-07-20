@@ -40,8 +40,9 @@ Everything else below is ready to copy-paste.
 | **Overnight status** | https://github.com/kenhuangus/continuum/blob/master/docs/OVERNIGHT_STATUS.md |
 | **Workbench screenshot (local path)** | `docs/screenshots/alibaba_workbench.png` — **refresh after free reclaim** (current file is stale; see overnight shots) |
 | **Demo video (local)** | `demo_video/continuum_demo.mp4` (~3:37) |
-| **PUBLIC_URL (test link)** | **NONE yet** — fill after free deploy, e.g. `http://<PUBLIC_IP>:8000/` and health `http://<PUBLIC_IP>:8000/v1/health` |
-| **YouTube** | **YOU PASTE AFTER UPLOAD** |
+| **PUBLIC_URL (test link)** | **https://continuum-8hwx.onrender.com/** (Render free — **not** Alibaba PoD). Health: https://continuum-8hwx.onrender.com/v1/health |
+| **Alibaba PUBLIC_URL** | **NONE** — overnight: prior ECS gone; Trial Center → paid; no free compute (see OVERNIGHT_STATUS / RENDER_DEVPOST_STATUS) |
+| **YouTube** | **YOU PASTE AFTER UPLOAD** (or attach `demo_video/continuum_demo.mp4` if Devpost allows file upload) |
 
 ---
 
@@ -76,7 +77,11 @@ Agents forget. Continuum makes memory first-class: it **accumulates** typed memo
 
 ### Alibaba Cloud
 
-Deployment target is **Alibaba Cloud** (ECS + Docker primary; Function Compute scaffolding included). Containerization and runbooks live under `infra/`. As of the overnight prep pass, a prior free Singapore ECS was no longer listed; reclaim a free trial instance and publish `PUBLIC_URL` before judging. Proof notes and attempt log: `docs/PROOF_OF_ALIBABA_DEPLOYMENT.md`, `docs/OVERNIGHT_STATUS.md`.
+Deployment target is **Alibaba Cloud** (ECS + Docker primary; Function Compute scaffolding included). Containerization and runbooks live under `infra/`. Overnight: prior free Singapore ECS was gone; Trial Center redirected to paid Custom Launch; free claim needs human Start for Free; **no free running compute** — paid paths aborted. Honest proof: `docs/PROOF_OF_ALIBABA_DEPLOYMENT.md`, `docs/OVERNIGHT_STATUS.md`.
+
+### Live demo (Render — not Alibaba proof)
+
+Judges can try the app at **https://continuum-8hwx.onrender.com/** (free Render Docker). Health: `/v1/health`. This is a **fallback Try-it URL**, not proof of Alibaba deployment. `DASHSCOPE_API_KEY` may be unset (chat can degrade); auth disabled for demo.
 
 ### Why it fits MemoryAgent
 
@@ -106,7 +111,7 @@ The track asks for efficient storage/retrieval, timely forgetting, and critical 
 | Demo video URL | YouTube URL after you upload `demo_video/continuum_demo.mp4` |
 | Description | Full description section above |
 | Built With | List above — **must include Qwen Cloud** |
-| Demo / test link | `PUBLIC_URL` when live; else local quickstart + note in description |
+| Demo / test link | https://continuum-8hwx.onrender.com/ (Render; label as non-Alibaba demo) |
 | Additional info | Link overnight status + proof docs if judges need honesty on deploy timing |
 
 ---
